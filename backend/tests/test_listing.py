@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import glob
+import json
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -17,7 +18,7 @@ from gem_assistant.parsing.listing_parser import (
 )
 from gem_assistant.safety.errors import BlockedByGeM, FetchingStopped
 
-from .conftest import ALL_BIDS_SHELL
+from .conftest import ALL_BIDS_SHELL, FIXTURES
 from .listing_fixtures import FakeGeM, make_doc, make_response
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -259,3 +260,12 @@ def test_real_corrigendum_fragments_are_kept_raw(container, tmp_path):
     src.corrigenda(["111", "222"])  # 111 answers "0": nothing to keep
     assert sorted(p.name for p in (tmp_path / "corr").iterdir()) == ["222.html"]
     assert (tmp_path / "corr" / "222.html").read_bytes() == body
+
+
+def test_a_real_listing_response_parses():
+    """Captured in the first live run (11-Oct-2026; creator field redacted). Every field
+    arrives as a one-element list, which the parser already accepted."""
+    data = json.loads((FIXTURES / "all-bids-data_2026-10-11.json").read_text())
+    page = parse_listing_response(data)
+    assert (page.total_found, len(page.bids), page.skipped) == (231, 10, 0)
+    assert all(b.bid_number.startswith("GEM/") and b.doc_id.isdigit() and b.ends_at for b in page.bids)

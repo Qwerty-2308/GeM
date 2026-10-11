@@ -1,9 +1,11 @@
 """Test doubles for the /all-bids-data response.
 
-IMPORTANT: this JSON is CONSTRUCTED from the field names the real page's
-JavaScript reads (see recon/fixtures/all-bids-shell_2026-09-13.html). It has
-not been captured from GeM. The first live run saves a real response to
-data/recon/last-listing-response.json — compare against it and replace this.
+This JSON is constructed from the field names the real page's JavaScript reads
+(see recon/fixtures/all-bids-shell_2026-09-13.html). It was checked against a real
+response captured on 11-Oct-2026 (fixtures/all-bids-data_2026-10-11.json): same
+envelope, same field names, and every field arrives as a one-element list (the
+`arrays=True` variant). The real response also has `status` and `message` at the top
+and 21 more fields this tool doesn't read.
 """
 
 from __future__ import annotations
