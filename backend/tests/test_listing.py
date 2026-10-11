@@ -247,3 +247,15 @@ def test_full_discovery_run_with_real_browser(settings, clock, transport, tmp_pa
     assert "extended to 20-11-2025" in assessed.bid.corrigendum.text
     assert any(r.rule == "corrigendum" for r in assessed.assessment.results)
     assert assessed.bid.found_value("bid_end") == "2025-11-14T12:00:00+05:30"  # unchanged by us
+
+
+@browser_test
+def test_real_corrigendum_fragments_are_kept_raw(container, tmp_path):
+    """Nobody has seen a real fragment's structure yet, so every one we meet is kept."""
+    body = b"<div><b>Bid end date</b> extended</div>"
+    gem = FakeGeM(ALL_BIDS_SHELL.read_bytes(), {}, corrigendum_bodies={"222": body})
+    src = PlaywrightListingSource(fetcher=container.fetcher, network=gem, executable_path=_chromium(),
+                                  timeout_seconds=20, save_corrigenda_to=tmp_path / "corr")
+    src.corrigenda(["111", "222"])  # 111 answers "0": nothing to keep
+    assert sorted(p.name for p in (tmp_path / "corr").iterdir()) == ["222.html"]
+    assert (tmp_path / "corr" / "222.html").read_bytes() == body

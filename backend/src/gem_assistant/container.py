@@ -104,6 +104,7 @@ class Container:
                 executable_path=settings.discovery.browser_executable_path,
                 timeout_seconds=settings.discovery.browser_timeout_seconds,
                 save_raw_to=settings.recon_dir / "last-listing-response.json",
+                save_corrigenda_to=settings.recon_dir / "corrigenda",
                 clock=clock,
             )
 
