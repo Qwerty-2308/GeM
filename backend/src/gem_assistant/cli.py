@@ -1,6 +1,6 @@
 """Command line entry points.
 
-    gem-assistant serve              start the app at http://127.0.0.1:8000
+    gem-assistant serve              start the app at http://127.0.0.1:8000 and open it
     gem-assistant import FILE.pdf    analyse a downloaded bid PDF
     gem-assistant fetch LINK         download one bid document from GeM and analyse it
     gem-assistant discover           search GeM for your profile's categories (one run)
@@ -12,6 +12,8 @@
 from __future__ import annotations
 
 import argparse
+import threading
+import webbrowser
 from pathlib import Path
 
 from .config import Settings
@@ -24,6 +26,7 @@ def main(argv: list[str] | None = None) -> int:
 
     serve = sub.add_parser("serve", help="start the local web app")
     serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--no-open", action="store_true", help="don't open the browser")
 
     imp = sub.add_parser("import", help="analyse a local bid PDF")
     imp.add_argument("pdf", type=Path)
@@ -51,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
 
         from .api.app import create_app
 
+        if not args.no_open:
+            _open_browser_later(f"http://127.0.0.1:{args.port}/")
         # 127.0.0.1 only: never reachable from other machines on the network.
         uvicorn.run(create_app(container), host="127.0.0.1", port=args.port)
         return 0
@@ -95,6 +100,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if run.outcome == "ok" else 1
 
     if args.command == "probe":
+        if not (args.folder / "manifest.json").is_file():
+            print(f"No manifest.json in {args.folder}. Point this at a folder made by 'gem-assistant corpus'.")
+            return 2
         report = container.corpus.probe(args.folder)
         for host, state in report["robots"].items():
             print(f"robots.txt {host}: {state}")
@@ -104,6 +112,11 @@ def main(argv: list[str] | None = None) -> int:
             print("Fetching is now stopped. Check GeM in a normal browser, then reset it on the Safety page.")
         return 0
     return 1
+
+
+def _open_browser_later(url: str) -> None:
+    """Give the server a moment to start listening, then open the app."""
+    threading.Timer(1.5, webbrowser.open, args=(url,)).start()
 
 
 def _reanalyse(container: Container) -> None:

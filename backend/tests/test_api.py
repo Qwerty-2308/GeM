@@ -119,3 +119,18 @@ def test_pages_cannot_be_framed_or_sniffed(client):
 
 def test_no_third_party_script_page_is_served(client):
     assert client.get("/api/docs").status_code == 404  # Swagger UI loads scripts from a CDN
+
+
+@pytest.mark.parametrize("args, opens", [(["serve"], True), (["serve", "--no-open"], False)])
+def test_serve_opens_the_app_in_the_browser(monkeypatch, tmp_path, args, opens):
+    import uvicorn
+
+    from gem_assistant import cli
+
+    monkeypatch.setenv("GEM_DATA_DIR", str(tmp_path))
+    served, opened = [], []
+    monkeypatch.setattr(uvicorn, "run", lambda app, host, port: served.append((host, port)))
+    monkeypatch.setattr(cli, "_open_browser_later", opened.append)
+    assert cli.main(args) == 0
+    assert served == [("127.0.0.1", 8000)]
+    assert opened == (["http://127.0.0.1:8000/"] if opens else [])

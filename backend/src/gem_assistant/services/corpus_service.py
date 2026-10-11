@@ -126,8 +126,8 @@ class CorpusService:
 
             run.corrigenda_checked = self._discovery.check_corrigenda(
                 analysed, CORPUS_MAX_CORRIGENDA, source=self._source_factory(folder))
-            run.message = (f"Saved {len(rows)} bid documents (found {run.found}, {run.new} new); "
-                           f"checked {run.corrigenda_checked} for corrigenda.")
+            run.message = (f"Saved {len(rows)} bid documents for {', '.join(run.keywords)} "
+                           f"(found {run.found}, {run.new} new); checked {run.corrigenda_checked} for corrigenda.")
         finally:  # a stopped run still records what it saved
             for row in rows:
                 bid = self._bids.get(row["bid_id"])

@@ -176,3 +176,17 @@ def test_one_oversized_document_is_skipped_not_the_whole_run(app, transport):
     assert [row["doc_id"] for row in manifest] == ["9000002"]
     assert not app.safety.status().breaker.open
     assert "too_large" in [r.outcome for r in app.safety.status().recent_requests]
+
+
+def test_probe_on_a_folder_without_a_manifest_says_so(monkeypatch, tmp_path, capsys):
+    from gem_assistant.cli import main
+
+    monkeypatch.setenv("GEM_DATA_DIR", str(tmp_path / "data"))
+    assert main(["probe", str(tmp_path)]) == 2
+    assert "manifest.json" in capsys.readouterr().out
+
+
+def test_the_run_message_names_the_keywords_searched(app, transport):
+    _queue_pdf(transport)
+    result = app.corpus.collect(["pump", "laptop", "medicine", "valves", "cable", "sixth"], limit=1)
+    assert "pump, laptop, medicine, valves, cable" in result.run.message and "sixth" not in result.run.message
