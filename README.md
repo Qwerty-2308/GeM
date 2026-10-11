@@ -196,7 +196,7 @@ backend/src/gem_assistant/
   api/                    FastAPI routes + response schemas
   container.py            composition root: the only place that wires concrete classes
 backend/tests/            283 tests, incl. four real bid PDFs (2025 + 2026), a real /all-bids-data response and the saved /all-bids page
-data/                     SQLite database (gitignored, owner-only permissions)
+(data lives in ~/Library/Application Support/GeM Assistant — see "Your data")
 ```
 
 ## How SOLID shows up

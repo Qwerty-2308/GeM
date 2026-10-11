@@ -40,3 +40,10 @@ F1 → F2 (docs) → F3 → F4 → F5 → F9 → F6 → F7 → F8 → F10/F11 �
 - F3 done (8596e05): parser + TurnoverExperienceRule; corpus +206 values, 0 regressions. NEW F15: PDFs are discarded, so parser fixes never reach analysed bids -> keep PDFs + reanalyse.
 - F7 done (fa12985)
 - F15 done (cec8033): kept PDFs + reanalyse; this Mac's 30 bids backfilled and re-read. Non-MSE 10L/2y profile: 17/30 BLOCKED with evidence.
+- F4 done (f229afd)
+- F5 done (df95ee3)
+- F9 done (5860bfe)
+- F6 done (04158ee)
+- F8 done (363fe8e)
+- F10/F11 done (7103af6)
+- README run-book done (93a7900); UI checked in headless Chromium: 5 pages, 0 console errors, 0 CSP violations
