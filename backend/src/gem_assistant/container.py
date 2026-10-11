@@ -7,6 +7,7 @@ Container with a fake clock/transport instead of patching internals.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Callable
 
@@ -116,11 +117,16 @@ class Container:
                 clock=clock,
             )
 
+        runs = SqliteDiscoveryRunStore(db)
+        # A run cut off by a crash or restart would show as running forever. The hard caps and
+        # timeouts bound a real run to well under an hour, so an older unfinished one is dead
+        # (a recent one may be a command-line search still going in another process).
+        runs.close_interrupted(started_before=clock.now() - timedelta(hours=1), now=clock.now())
         discovery = DiscoveryService(
             source_factory=lambda: source_for(settings.recon_dir / "last-listing-response.json",
                                               settings.recon_dir / "corrigenda"),
             listings=listing_repo,
-            runs=SqliteDiscoveryRunStore(db),
+            runs=runs,
             profiles=profile_repo,
             fetch_service=bid_fetch,
             fetcher=fetcher,

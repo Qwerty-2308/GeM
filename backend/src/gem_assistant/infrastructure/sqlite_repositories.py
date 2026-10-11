@@ -380,6 +380,15 @@ class SqliteDiscoveryRunStore:
                  run.found, run.new, run.downloaded, run.requests, run.corrigenda_checked, run.id),
             )
 
+    def close_interrupted(self, started_before: datetime, now: datetime) -> int:
+        with self._db.connect() as conn:
+            return conn.execute(
+                """UPDATE discovery_run SET finished_at = ?, outcome = 'failed',
+                       message = 'Interrupted: the app stopped during this search.'
+                   WHERE finished_at IS NULL AND started_at < ?""",
+                (_iso(now), _iso(started_before)),
+            ).rowcount
+
     def last(self, contacted_gem: bool = False) -> DiscoveryRun | None:
         where = "WHERE requests > 0 OR finished_at IS NULL" if contacted_gem else ""
         with self._db.connect() as conn:

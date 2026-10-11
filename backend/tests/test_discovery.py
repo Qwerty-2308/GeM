@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 import time
 from datetime import datetime, timezone
 
@@ -254,3 +255,25 @@ def test_given_keywords_that_are_all_unusable_are_refused(app, source):
     with pytest.raises(DiscoveryNotAllowed, match="keywords"):
         app.discovery.run(trigger="corpus", keywords=["a", "x*"], execute=lambda run: None)
     assert source.calls == []
+
+
+def test_a_search_cut_off_by_a_restart_is_closed_on_the_next_start(settings, clock, transport, source):
+    """Otherwise it shows as running forever. A recent one may still be running in another
+    process (a command-line search), so only runs older than any run can last are closed."""
+    from datetime import timedelta
+
+    from gem_assistant.domain.models import DiscoveryRun
+    from gem_assistant.infrastructure.database import Database
+    from gem_assistant.infrastructure.sqlite_repositories import SqliteDiscoveryRunStore
+
+    Container.build(settings, clock=clock, transport=transport, listing_source_factory=source.bind)
+    runs = SqliteDiscoveryRunStore(Database(settings.db_path))
+    runs.start(DiscoveryRun(trigger="manual", started_at=clock.now() - timedelta(hours=2), keywords=["pump"]))
+    recent = runs.start(DiscoveryRun(trigger="cli", started_at=clock.now() - timedelta(minutes=5), keywords=["pump"]))
+
+    Container.build(settings, clock=clock, transport=transport, listing_source_factory=source.bind)
+
+    with sqlite3.connect(settings.db_path) as conn:
+        rows = dict(conn.execute("SELECT id, outcome FROM discovery_run").fetchall())
+    assert rows[recent] is None  # possibly still running elsewhere
+    assert [o for i, o in rows.items() if i != recent] == ["failed"]
