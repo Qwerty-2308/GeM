@@ -36,3 +36,5 @@ live deadline is not yet shown on the bid page.
 F1 → F2 (docs) → F3 → F4 → F5 → F9 → F6 → F7 → F8 → F10/F11 → F13/F14 → README run-book → F12 (CI, push, watch the run) → final self-review.
 
 ## Progress
+- F1 done (abafec4); data moved to ~/Library/Application Support/GeM Assistant. F2: venv at backend/.venv.nosync + symlink, verified.
+- F3 done (8596e05): parser + TurnoverExperienceRule; corpus +206 values, 0 regressions. NEW F15: PDFs are discarded, so parser fixes never reach analysed bids -> keep PDFs + reanalyse.
