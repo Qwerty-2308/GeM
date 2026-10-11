@@ -27,6 +27,11 @@ class ProfileRequiredRule:
 
 
 class DeadlineRule:
+    """The bid document holds the original deadline, and a corrigendum can extend it — seen
+    live on 11-Oct-2026, when three bids whose PDFs said they closed on 5-7 Oct were open
+    until the 12th. So a passed deadline only blocks once GeM has confirmed there is no
+    corrigendum; otherwise the bid needs a look, because skipping a live bid costs a bid."""
+
     name = "deadline"
 
     def evaluate(self, bid: BidAnalysis, profile: SellerProfile | None, now: datetime) -> list[RuleResult]:
@@ -34,10 +39,15 @@ class DeadlineRule:
         if end is None:
             return []  # missing critical fields are handled by CriticalFieldsRule
         field = bid.field("bid_end")
-        if datetime.fromisoformat(end) <= now:
+        if datetime.fromisoformat(end) > now:
+            return []
+        if bid.corrigendum.status is CorrigendumStatus.NONE:
             return [RuleResult(rule=self.name, outcome=Verdict.BLOCKED,
                                reason="Bid has already closed.", evidence=field.evidence)]
-        return []
+        return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,
+                           reason="The deadline in the bid document has passed, but it may have been extended "
+                                  "by a corrigendum. Check the current deadline on GeM.",
+                           evidence=field.evidence)]
 
 
 class CriticalFieldsRule:

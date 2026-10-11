@@ -43,10 +43,14 @@ def test_same_pdf_twice_is_not_duplicated(client):
     assert second == {"id": first, "already_imported": True}
 
 
-def test_closed_bid_is_blocked(client, clock):
+def test_a_passed_deadline_without_a_corrigendum_check_needs_review(client, clock):
+    """An imported PDF was never checked for a corrigendum, so a passed deadline may have
+    been extended: the bid needs a look, it is not BLOCKED."""
     bid_id = _import(client)
     clock.advance(days=30)
-    assert client.get(f"/api/bids/{bid_id}").json()["verdict"] == "BLOCKED"
+    detail = client.get(f"/api/bids/{bid_id}").json()
+    assert detail["verdict"] == "NEEDS_REVIEW"
+    assert any("may have been extended" in r["reason"] for r in detail["results"])
 
 
 def test_profile_round_trip_changes_verdict_reasons(client):
