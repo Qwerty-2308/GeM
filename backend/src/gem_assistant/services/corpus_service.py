@@ -10,22 +10,34 @@ keeps them on disk with a manifest. Every request still goes through SafeFetcher
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
+from urllib.parse import urlsplit
+from urllib.robotparser import RobotFileParser
 
 from ..domain.models import DiscoveryRun, FieldStatus, ListingEntry
 from ..domain.ports import BidReader, Clock, ListingRepository, ListingSource
 from ..infrastructure.pypdf_extractor import PdfLink
 from ..parsing.normalizers import IST
 from ..safety.daily_budget import DailyBudget
+from ..safety.errors import SafetyError, UnexpectedResponse
+from ..safety.response_classifier import Expect
+from ..safety.safe_fetcher import SafeFetcher
 from .bid_fetch_service import BidFetchService
 from .discovery_service import DiscoveryNotAllowed, DiscoveryService
 
 # Hard ceilings for this one command. Constants, not settings, so nothing can raise them.
 CORPUS_MAX_DOWNLOADS = 30
 CORPUS_MAX_CORRIGENDA = 10
+
+# Link shapes seen in a real bid PDF (recon/fixtures, docs/02-RECON-FINDINGS.md §7).
+ATTACHMENT_LINKS = (
+    ("spec", re.compile(r"^https://mkp\.gem\.gov\.in/catalog_data/.*SpecificationDocument/.*\.pdf$")),
+    ("atc", re.compile(r"^https://fulfilment\.gem\.gov\.in/contract/slafds\?")),
+)
 
 
 def pick_varied(entries: Sequence[ListingEntry], limit: int) -> list[ListingEntry]:
@@ -61,6 +73,7 @@ class CorpusService:
         source_factory: Callable[[Path], ListingSource],  # folder -> source saving raw answers there
         listings: ListingRepository,
         fetch_service: BidFetchService,
+        fetcher: SafeFetcher,
         bids: BidReader,
         budget: DailyBudget,
         link_reader: Callable[[bytes], list[PdfLink]],
@@ -72,6 +85,7 @@ class CorpusService:
         self._source_factory = source_factory
         self._listings = listings
         self._fetch = fetch_service
+        self._fetcher = fetcher
         self._bids = bids
         self._budget = budget
         self._links = link_reader
@@ -139,3 +153,58 @@ class CorpusService:
         except Exception as error:  # one odd annotation must not cost the rest of the corpus
             row["links"], row["links_error"] = [], f"{type(error).__name__}: {error}"
         return row
+
+    def probe(self, folder: Path) -> dict:
+        """Ask GeM, once each, whether a buyer's specification document and uploaded terms
+        file open without logging in. Run after `collect`: a login wall answers with a
+        redirect, which trips the breaker by design, and that must not cost the corpus."""
+        rows = json.loads((folder / "manifest.json").read_text())
+        urls = [link["url"] for row in rows for link in row.get("links", [])]
+        report: dict = {"robots": {}, "probes": []}
+        rules: dict[str, RobotFileParser | None] = {}
+        try:
+            for kind, pattern in ATTACHMENT_LINKS:
+                url = next((u for u in urls if pattern.match(u)), None)
+                if url is None:
+                    report["probes"].append({"kind": kind, "url": None, "outcome": "no_link_in_corpus"})
+                else:
+                    report["probes"].append(self._probe_one(folder, kind, url, rules, report["robots"]))
+        finally:
+            (folder / "probe.json").write_text(json.dumps(report, indent=1, ensure_ascii=False))
+        return report
+
+    def _probe_one(self, folder: Path, kind: str, url: str,
+                   rules: dict[str, RobotFileParser | None], robots_report: dict[str, str]) -> dict:
+        entry = {"kind": kind, "url": url}
+        try:
+            robots = self._robots(urlsplit(url).hostname or "", rules, robots_report)
+            if robots is not None and not robots.can_fetch(self._fetcher.user_agent, url):
+                entry["outcome"] = "robots_disallow"
+                return entry
+            response = self._fetcher.get(url, expect=Expect.PDF)  # exactly as linked, never edited
+        except UnexpectedResponse as error:  # 404/410: gone, not a block
+            entry["outcome"] = f"not_found: {error}"
+            return entry
+        except SafetyError as error:  # breaker tripped (or already open): stop, record why
+            entry["outcome"] = f"stopped: {error}"
+            return entry
+        (folder / "attachments").mkdir(parents=True, exist_ok=True)
+        entry["file"] = f"attachments/{kind}.pdf"
+        (folder / entry["file"]).write_bytes(response.body)
+        entry["outcome"] = "public"
+        return entry
+
+    def _robots(self, host: str, rules: dict[str, RobotFileParser | None],
+                robots_report: dict[str, str]) -> RobotFileParser | None:
+        """robots.txt for `host`, fetched once per probe. None when the host has none —
+        RFC 9309: a missing robots.txt places no restriction."""
+        if host not in rules:
+            try:
+                body = self._fetcher.get(f"https://{host}/robots.txt", expect=Expect.TEXT).body
+            except UnexpectedResponse:
+                rules[host], robots_report[host] = None, "absent (no rules)"
+            else:
+                parser = RobotFileParser()
+                parser.parse(body.decode("utf-8", errors="replace").splitlines())
+                rules[host], robots_report[host] = parser, "fetched"
+        return rules[host]

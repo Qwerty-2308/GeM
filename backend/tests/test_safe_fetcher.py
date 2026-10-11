@@ -224,3 +224,10 @@ def test_no_request_leaves_until_a_contact_email_is_set(settings, clock, transpo
         c.fetcher.ensure_ready()
     assert transport.calls == []
     assert c.safety.status().used_today == 0
+
+
+def test_plain_text_is_judged_by_shape_not_by_words():
+    robots = HttpResponse(url="", status=200, headers={}, body=b"User-agent: *\nDisallow: /captcha/\n")
+    page = HttpResponse(url="", status=200, headers={}, body=b"<!DOCTYPE html><html>Request Rejected</html>")
+    assert ResponseClassifier().classify(robots, Expect.TEXT).kind is ResponseKind.OK
+    assert ResponseClassifier().classify(page, Expect.TEXT).kind is ResponseKind.BLOCK

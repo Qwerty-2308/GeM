@@ -107,3 +107,59 @@ def test_the_manifest_survives_a_safety_stop(app, transport):
     manifest = json.loads((result.folder / "manifest.json").read_text())
     assert [row["doc_id"] for row in manifest] == ["9000001"]
     assert app.safety.status().breaker.open
+
+
+# ---------- probe ----------
+
+SPEC_URL = ("https://mkp.gem.gov.in/catalog_data/catalog_support_document/buyer_documents/1/2/"
+            "CatalogAttrs/SpecificationDocument/2025/10/24/spec_abc.pdf")
+ATC_URL = "https://fulfilment.gem.gov.in/contract/slafds?fileDownloadPath=SLA_UPLOAD_PATH/2025/Oct/X/ATC_1.pdf"
+
+
+def _folder_with_links(tmp_path, urls):
+    folder = tmp_path / "corpus"
+    folder.mkdir()
+    rows = [{"doc_id": "1", "links": [{"page": 5, "url": u} for u in urls]}]
+    (folder / "manifest.json").write_text(json.dumps(rows))
+    return folder
+
+
+def test_probe_never_requests_a_file_robots_txt_disallows(container, transport, tmp_path):
+    folder = _folder_with_links(tmp_path, [SPEC_URL, ATC_URL])
+    transport.queue(body=b"User-agent: *\nDisallow: /catalog_data/\n")
+    transport.queue(body=b"User-agent: *\nDisallow: /\n")
+    report = container.corpus.probe(folder)
+    assert [p["outcome"] for p in report["probes"]] == ["robots_disallow", "robots_disallow"]
+    assert [url for url, _ in transport.calls] == [
+        "https://mkp.gem.gov.in/robots.txt", "https://fulfilment.gem.gov.in/robots.txt"]
+    assert json.loads((folder / "probe.json").read_text()) == report
+
+
+def test_probe_saves_a_public_file_and_stops_at_a_login_redirect(container, transport, tmp_path):
+    folder = _folder_with_links(tmp_path, [SPEC_URL, ATC_URL])
+    transport.queue(status=404, body=b"")                     # mkp has no robots.txt: no rules
+    transport.queue(body=SAMPLE_PDF.read_bytes())             # the spec document
+    transport.queue(status=404, body=b"")                     # fulfilment has no robots.txt
+    transport.queue(status=302, body=b"", headers={"location": "https://sso.gem.gov.in/ARXSSO/oauth/doLogin"})
+    report = container.corpus.probe(folder)
+    spec, atc = report["probes"]
+    assert spec["outcome"] == "public"
+    assert (folder / spec["file"]).read_bytes() == SAMPLE_PDF.read_bytes()
+    assert atc["outcome"].startswith("stopped:") and "sso.gem.gov.in" in atc["outcome"]
+    assert set(report["robots"].values()) == {"absent (no rules)"}
+    assert container.safety.status().breaker.open
+
+
+def test_probe_with_no_attachment_links_sends_nothing(container, transport, tmp_path):
+    folder = _folder_with_links(tmp_path, ["https://example.org/other.pdf"])
+    report = container.corpus.probe(folder)
+    assert [p["outcome"] for p in report["probes"]] == ["no_link_in_corpus", "no_link_in_corpus"]
+    assert transport.calls == []
+
+
+def test_attachment_link_shapes_match_the_real_bid_pdf():
+    from gem_assistant.services.corpus_service import ATTACHMENT_LINKS
+
+    urls = [link.url for link in pdf_links(SAMPLE_PDF.read_bytes())]
+    assert {kind: sum(1 for u in urls if pattern.match(u)) for kind, pattern in ATTACHMENT_LINKS} == \
+        {"spec": 1, "atc": 1}

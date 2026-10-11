@@ -24,6 +24,9 @@ class Expect(str, Enum):
     # A snippet of page content, not a whole page. Its words are written by buyers, so it
     # is judged by shape rather than by vocabulary — see classify().
     HTML_FRAGMENT = "html_fragment"
+    # Plain text such as robots.txt. Like a fragment, judged by shape: a robots file may
+    # legitimately list a path like /captcha/.
+    TEXT = "text"
 
 
 @dataclass(frozen=True)
@@ -85,7 +88,7 @@ class ResponseClassifier:
 
         head = response.body[:65536].decode("utf-8", errors="ignore").lower()
 
-        if expect is Expect.HTML_FRAGMENT:
+        if expect in (Expect.HTML_FRAGMENT, Expect.TEXT):
             # Buyers write this text, and a corrigendum may legitimately say "access
             # denied to unempanelled vendors" or name a CAPTCHA product. Matching on those
             # words would stop all fetching over an ordinary sentence. A real challenge or

@@ -131,6 +131,7 @@ class Container:
             source_factory=lambda folder: source_for(folder / "listing-response.json", folder / "corrigenda"),
             listings=listing_repo,
             fetch_service=bid_fetch,
+            fetcher=fetcher,
             bids=bid_repo,
             budget=budget,
             link_reader=pdf_links,

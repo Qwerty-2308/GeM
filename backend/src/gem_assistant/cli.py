@@ -5,6 +5,7 @@
     gem-assistant fetch LINK         download one bid document from GeM and analyse it
     gem-assistant discover           search GeM for your profile's categories (one run)
     gem-assistant corpus KEYWORD...  collect real bid documents for parser work (one run)
+    gem-assistant probe FOLDER       after corpus: do buyer attachments open without login?
 """
 
 from __future__ import annotations
@@ -34,6 +35,9 @@ def main(argv: list[str] | None = None) -> int:
     corpus = sub.add_parser("corpus", help="collect real bid documents for parser work (one guarded run)")
     corpus.add_argument("keywords", nargs="+")
     corpus.add_argument("--limit", type=int, default=30, help="documents to download (at most 30)")
+
+    probe = sub.add_parser("probe", help="after corpus: check once whether buyer attachments open without login")
+    probe.add_argument("folder", type=Path)
 
     args = parser.parse_args(argv)
     container = Container.build(Settings.from_env())
@@ -81,6 +85,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[{run.outcome}] {run.message}  (requests to GeM: {run.requests})")
         print(f"Folder: {result.folder}")
         return 0 if run.outcome == "ok" else 1
+
+    if args.command == "probe":
+        report = container.corpus.probe(args.folder)
+        for host, state in report["robots"].items():
+            print(f"robots.txt {host}: {state}")
+        for item in report["probes"]:
+            print(f"{item['kind']}: {item['outcome']}")
+        if container.safety.status().breaker.open:
+            print("Fetching is now stopped. Check GeM in a normal browser, then reset it on the Safety page.")
+        return 0
     return 1
 
 
