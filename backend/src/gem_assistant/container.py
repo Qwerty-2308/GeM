@@ -7,6 +7,7 @@ Container with a fake clock/transport instead of patching internals.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from .config import Settings
@@ -15,7 +16,7 @@ from .eligibility.evaluator import EligibilityEvaluator
 from .infrastructure.database import Database
 from .infrastructure.browser_listing import PlaywrightListingSource, PlaywrightNetwork
 from .infrastructure.httpx_transport import HttpxTransport
-from .infrastructure.pypdf_extractor import PypdfTextExtractor
+from .infrastructure.pypdf_extractor import PypdfTextExtractor, pdf_links
 from .infrastructure.sqlite_repositories import (
     SqliteBidRepository,
     SqliteBreakerStateStore,
@@ -37,6 +38,7 @@ from .safety.url_policy import UrlPolicy
 from .services.bid_fetch_service import BidFetchService
 from .services.bid_import_service import BidImportService
 from .services.bid_query_service import BidQueryService
+from .services.corpus_service import CorpusService
 from .services.discovery_service import DiscoveryService
 from .services.profile_service import ProfileService
 from .services.safety_service import SafetyService
@@ -52,6 +54,7 @@ class Container:
     fetcher: SafeFetcher
     bid_fetch: BidFetchService
     discovery: DiscoveryService
+    corpus: CorpusService
 
     @classmethod
     def build(cls, settings: Settings, clock: Clock | None = None,
@@ -97,20 +100,22 @@ class Container:
         listing_repo = SqliteListingRepository(db)
         bid_fetch = BidFetchService(fetcher, bid_import, listing_repo, bid_repo)
 
-        def default_source(f: SafeFetcher) -> ListingSource:
+        def source_for(raw_to: Path, corrigenda_to: Path) -> ListingSource:
+            if listing_source_factory is not None:
+                return listing_source_factory(fetcher)
             return PlaywrightListingSource(
-                fetcher=f,
+                fetcher=fetcher,
                 network=PlaywrightNetwork(settings.safety.request_timeout_seconds),
                 executable_path=settings.discovery.browser_executable_path,
                 timeout_seconds=settings.discovery.browser_timeout_seconds,
-                save_raw_to=settings.recon_dir / "last-listing-response.json",
-                save_corrigenda_to=settings.recon_dir / "corrigenda",
+                save_raw_to=raw_to,
+                save_corrigenda_to=corrigenda_to,
                 clock=clock,
             )
 
-        make_source = listing_source_factory or default_source
         discovery = DiscoveryService(
-            source_factory=lambda: make_source(fetcher),
+            source_factory=lambda: source_for(settings.recon_dir / "last-listing-response.json",
+                                              settings.recon_dir / "corrigenda"),
             listings=listing_repo,
             runs=SqliteDiscoveryRunStore(db),
             profiles=profile_repo,
@@ -120,6 +125,18 @@ class Container:
             clock=clock,
             settings=settings.discovery,
             bids=bid_repo,
+        )
+        corpus = CorpusService(
+            discovery=discovery,
+            source_factory=lambda folder: source_for(folder / "listing-response.json", folder / "corrigenda"),
+            listings=listing_repo,
+            fetch_service=bid_fetch,
+            bids=bid_repo,
+            budget=budget,
+            link_reader=pdf_links,
+            clock=clock,
+            corpus_root=settings.data_dir / "corpus",
+            max_pages=settings.discovery.max_pages_per_keyword,
         )
 
         return cls(
@@ -132,4 +149,5 @@ class Container:
             fetcher=fetcher,
             bid_fetch=bid_fetch,
             discovery=discovery,
+            corpus=corpus,
         )

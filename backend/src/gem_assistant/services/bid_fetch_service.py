@@ -30,6 +30,7 @@ class BadBidLink(ValueError):
 class FetchResult:
     import_result: ImportResult
     downloaded: bool  # False when we already had it and made no request
+    pdf: bytes | None = None  # the downloaded document; None when nothing was downloaded
 
 
 class BidFetchService:
@@ -62,7 +63,7 @@ class BidFetchService:
             return FetchResult(ImportResult(id=existing, already_imported=True), downloaded=False)
         response = self._fetcher.get(DOCUMENT_URL.format(doc_id=doc_id), expect=Expect.PDF)
         result = self._importer.import_pdf(response.body, source_name=source_name, doc_id=doc_id)
-        return FetchResult(result, downloaded=True)
+        return FetchResult(result, downloaded=True, pdf=response.body)
 
     def fetch_listing_entry(self, entry: ListingEntry) -> FetchResult | None:
         """Download and analyse one queued card, or None if this one document could not

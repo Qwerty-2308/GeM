@@ -4,6 +4,7 @@
     gem-assistant import FILE.pdf    analyse a downloaded bid PDF
     gem-assistant fetch LINK         download one bid document from GeM and analyse it
     gem-assistant discover           search GeM for your profile's categories (one run)
+    gem-assistant corpus KEYWORD...  collect real bid documents for parser work (one run)
 """
 
 from __future__ import annotations
@@ -29,6 +30,10 @@ def main(argv: list[str] | None = None) -> int:
     fetch.add_argument("link")
 
     sub.add_parser("discover", help="search the GeM listing once for your categories")
+
+    corpus = sub.add_parser("corpus", help="collect real bid documents for parser work (one guarded run)")
+    corpus.add_argument("keywords", nargs="+")
+    corpus.add_argument("--limit", type=int, default=30, help="documents to download (at most 30)")
 
     args = parser.parse_args(argv)
     container = Container.build(Settings.from_env())
@@ -62,6 +67,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Not started: {error}")
             return 2
         print(f"[{run.outcome}] {run.message}  (requests to GeM: {run.requests})")
+        return 0 if run.outcome == "ok" else 1
+
+    if args.command == "corpus":
+        from .services.discovery_service import DiscoveryNotAllowed
+
+        try:
+            result = container.corpus.collect(args.keywords, args.limit)
+        except DiscoveryNotAllowed as error:
+            print(f"Not started: {error}")
+            return 2
+        run = result.run
+        print(f"[{run.outcome}] {run.message}  (requests to GeM: {run.requests})")
+        print(f"Folder: {result.folder}")
         return 0 if run.outcome == "ok" else 1
     return 1
 
