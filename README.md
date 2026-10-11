@@ -10,7 +10,8 @@ rationale lives in `../docs/00-RESEARCH-AND-ARCHITECTURE.md`.
 cd backend
 uv sync                                  # Python deps into backend/.venv
 uv run playwright install chromium       # one-time: headless browser for bid search
-export GEM_CONTACT_EMAIL=you@example.com # goes in the User-Agent so GeM can reach you
+export GEM_CONTACT_EMAIL=you@example.com # required: goes in the User-Agent so GeM can reach you;
+                                        # nothing is sent to GeM until it is set
 uv run gem-assistant serve               # open http://127.0.0.1:8000
 ```
 
@@ -20,6 +21,8 @@ Command-line equivalents:
 uv run gem-assistant import path/to/bid.pdf     # analyse a PDF you already have (no network)
 uv run gem-assistant fetch https://bidplus.gem.gov.in/showbidDocument/8506455
 uv run gem-assistant discover                   # one search of the public listing
+uv run gem-assistant corpus pump laptop manpower   # one guarded run: up to 30 varied bid PDFs + manifest
+uv run gem-assistant probe data/corpus/<folder>    # afterwards: do buyer attachments open without login?
 ```
 
 Run the tests:
@@ -53,6 +56,8 @@ needs reinstalling.
 | Add a bid by its `showbidDocument` link | done; 1 request, never repeated for the same document |
 | Search the public `/all-bids` listing (headless browser) | done; tested offline against the saved page, **not yet run live** |
 | Corrigendum check for the bids it analyses | done; shown verbatim, never parsed into a new deadline |
+| Corpus collection (`corpus`): varied real bid PDFs + manifest for parser work | done |
+| Attachment check (`probe`): robots.txt first, then one spec document and one buyer terms file | done |
 | LLM reading of free-text ATC, ATC attachments | later |
 
 ## How bid search works
@@ -89,6 +94,32 @@ see both.
 A bid that was never checked says so rather than staying quiet — including every PDF you
 import by hand, since those have no GeM document id to check against.
 
+## How the corpus command works
+
+The parser was written against one real bid PDF, and new field labels may only come from
+real documents (`../docs/02-RECON-FINDINGS.md`). `corpus` collects them:
+
+- It is a discovery run with trigger `corpus`, so it shares the same guard rails: one run
+  at a time, 15 minutes between runs, at most 5 keywords × 2 pages, the safety pre-check,
+  and the same handling of stops.
+- It downloads up to **30** bid documents (normal runs: 5), chosen for variety: it rotates
+  through the keywords and, within each one, prefers ministries it hasn't picked yet. 30 is
+  a constant in `services/corpus_service.py`; no setting can raise it.
+- It refuses to start unless today's remaining request budget covers the worst case, so it
+  never stops half-way for budget reasons.
+- Output goes to `data/corpus/<YYYYMMDD-HHMM>/`: `pdf/<doc_id>.pdf`, `manifest.json` (one
+  row per bid: ministry, keyword, fields not found, links inside the PDF, corrigendum
+  status), `listing-response.json` (the real search response) and `corrigenda/` (raw
+  fragments, if any). `data/` is gitignored: bid PDFs contain consignee names and phone
+  numbers.
+
+`probe` is separate and runs afterwards. GeM puts the buyer's uploaded terms file and the
+specification document in the PDF as links, not text. `probe` reads robots.txt for each
+host first, then requests at most one of each, exactly as linked. If a file needs a login,
+GeM answers with a redirect, which trips the breaker by design. That's why it runs after
+the corpus is safely on disk. Reset the breaker on the Safety page after checking GeM in a
+normal browser.
+
 ## Layout
 
 ```
@@ -102,6 +133,7 @@ backend/src/gem_assistant/
   safety/                 one guard per file; safe_fetcher.py composes them
   infrastructure/browser_listing.py   headless search of the public listing
   services/discovery_service.py       one search run: search → store → download → analyse
+  services/corpus_service.py          corpus collection + attachment probe (borrows discovery's guard rails)
   parsing/                field_rules.py, clause_patterns.py = what to look for
   parsing/corrigendum_parser.py       reads "0" (none) or the amendment, as plain text
   eligibility/rules.py    one class per eligibility check
@@ -109,7 +141,7 @@ backend/src/gem_assistant/
   infrastructure/         SQLite, httpx, pypdf, clock: adapters for the ports
   api/                    FastAPI routes + response schemas
   container.py            composition root: the only place that wires concrete classes
-backend/tests/            168 tests, incl. the real bid PDF and the saved /all-bids page
+backend/tests/            183 tests, incl. the real bid PDF and the saved /all-bids page
 data/                     SQLite database (gitignored, owner-only permissions)
 ```
 
@@ -126,7 +158,9 @@ data/                     SQLite database (gitignored, owner-only permissions)
 - No login, credentials or accounts anywhere. The browser's temporary cookies are discarded after each search.
 - https on `*.gem.gov.in` only; robots.txt paths (`/resources/`, `/cgi-bin/`, `/bg_emd/`) are never fetched.
 - One request at a time, at least 4 s apart, at most 250 per day (the env vars can only make these stricter).
-- Searches at least 15 minutes apart; at most 5 keywords × 2 pages and 5 downloads per search.
+- Nothing is sent to GeM until `GEM_CONTACT_EMAIL` is set.
+- Searches at least 15 minutes apart; at most 5 keywords × 2 pages and 5 downloads per search
+  (the one-off `corpus` command: at most 30 downloads and 10 corrigendum checks).
 - POST only to the listing page's own search (`/all-bids-data`) and its own corrigendum view
   (`/bidding/bid/viewCorrigendum/<id>`), and only from the rendered listing page. The
   corrigendum path accepts an id and nothing deeper.
