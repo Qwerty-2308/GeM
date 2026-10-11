@@ -47,3 +47,15 @@ F1 → F2 (docs) → F3 → F4 → F5 → F9 → F6 → F7 → F8 → F10/F11 �
 - F8 done (363fe8e)
 - F10/F11 done (7103af6)
 - README run-book done (93a7900); UI checked in headless Chromium: 5 pages, 0 console errors, 0 CSP violations
+- F12 done: CI (tests incl. headless Chromium + pip-audit) green on GitHub, 283 passed / 0 skipped on ubuntu; Dependabot on. PR #1 → master open: https://github.com/Qwerty-2308/GeM/pull/1
+- F13/F14 done: httpx2 (warning gone), Python 3.12 pinned, fastapi/pypdf/pydantic upgraded one per commit (pypdf: corpus readings unchanged).
+
+## Final review (self-review — no subagent requested)
+Re-read every changed module for the failure modes above. No open Critical/Important items.
+
+## Deferred (minor)
+- Field table shows rupee figures as raw integers (e.g. 25500000); format with Indian grouping in the UI.
+- Bid page could link the buyer's ATC file (now known to be public) — part of the Layer-2 (LLM) work.
+- EMD/ePBG blocks split across a page break (5 of 60 in the corpus) stay NOT_FOUND by design.
+- `probe` trips the breaker if a host answers /robots.txt with an HTML page (conservative).
+- Corrigenda are checked once, when a bid is analysed; a periodic re-check of open bids would keep them fresh.
