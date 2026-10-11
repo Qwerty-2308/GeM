@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -59,3 +60,54 @@ def rupees(raw: str) -> str:
     if not whole.isdigit():
         raise ValueError(f"bad amount {raw!r}")
     return str(int(whole))
+
+
+def shown_means_yes(raw: str) -> str:
+    """The newer bid form lists the bank and the amount (or percentage) instead of
+    printing "Required: Yes". A value shown there means the thing is required."""
+    if not collapse_whitespace(raw):
+        raise ValueError("empty")
+    return "Yes"
+
+
+def percent(raw: str) -> str:
+    """'5.00' -> '5'. Rejects anything outside 0-100."""
+    try:
+        value = Decimal(collapse_whitespace(raw))
+    except InvalidOperation as error:
+        raise ValueError(f"not a percentage: {raw!r}") from error
+    if not 0 < value <= 100:
+        raise ValueError(f"percentage out of range: {raw!r}")
+    return f"{value.normalize():f}"
+
+
+def three_year_turnover_lakh(raw: str) -> str:
+    """'3 Years)\n255 Lakh (s)' -> '25500000' (rupees). The seller profile holds a 3-year
+    average, so a requirement averaged over any other period is UNCLEAR, not compared."""
+    match = re.fullmatch(r"(\d+) Years?\) (\d+(?:\.\d{1,2})?) Lakh \(s\)", collapse_whitespace(raw))
+    if match is None:
+        raise ValueError(f"unexpected turnover format: {raw!r}")
+    if match.group(1) != "3":
+        raise ValueError(f"turnover averaged over {match.group(1)} years; the profile holds a 3-year average")
+    return str(int(Decimal(match.group(2)) * 100_000))
+
+
+def years(raw: str) -> str:
+    """'5 Year (s)' -> '5'."""
+    match = re.fullmatch(r"(\d+) Years? \(s\)", collapse_whitespace(raw))
+    if match is None:
+        raise ValueError(f"unexpected years format: {raw!r}")
+    return str(int(match.group(1)))
+
+
+def relaxation(raw: str) -> str:
+    """'No', 'Yes', 'Yes | Complete' -> 'No'/'Yes'; 'Yes | Partial' -> 'Partial'. A partial
+    relaxation lowers the threshold instead of removing it, so it must never read as 'Yes'."""
+    value = collapse_whitespace(raw)
+    if value == "No":
+        return "No"
+    if value in ("Yes", "Yes | Complete"):
+        return "Yes"
+    if value == "Yes | Partial":
+        return "Partial"
+    raise ValueError(f"unexpected relaxation value: {raw!r}")

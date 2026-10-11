@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import functools
+
 import pytest
 
 from gem_assistant.domain.models import (
@@ -14,7 +16,7 @@ from gem_assistant.parsing.evidence import quote_is_on_page
 from gem_assistant.parsing.label_extractor import LabelFieldExtractor
 from gem_assistant.parsing.reconciler import RuleBasedReconciler
 
-from .conftest import SAMPLE_PDF
+from .conftest import FIXTURES, SAMPLE_PDF
 
 
 @pytest.fixture(scope="module")
@@ -40,8 +42,10 @@ EXPECTED = {
     "total_quantity": "6383",
     "item_category": "CLIP ASSY TO DRG NO. SB 3321-05 3 (AS PER THE DRG & SPECIFICATION)",
     "relevant_categories": "Diesel Engine as per IS 10001",
-    "mse_exemption": "No",
-    "startup_exemption": "No",
+    "mse_experience_relaxation": "No",
+    "mse_turnover_relaxation": "No",
+    "startup_experience_relaxation": "No",
+    "startup_turnover_relaxation": "No",
     "bid_to_ra": "No",
     "type_of_bid": "Two Packet Bid",
     "evaluation_method": "Total value wise evaluation",
@@ -58,9 +62,70 @@ def test_field_values_match_the_pdf(fields, name, expected):
     assert fields[name].value == expected
 
 
+# Bid documents captured live on 11-Oct-2026, hand-checked against their text. GeM's form
+# changed since the 2025 sample: "Exemption" became "Relaxation" (in three label shapes),
+# EMD/ePBG show the bank and amount instead of "Required: Yes", MII Compliance is new, and
+# the turnover/experience requirements are now labelled fields. None means NOT_FOUND.
+CURRENT = {
+    "GEM-2026-B-8061591_doc9921669.pdf": {  # service (laptop AMC): no quantity
+        "bid_number": "GEM/2026/B/8061591",
+        "mse_experience_relaxation": "Yes", "mse_turnover_relaxation": "Yes",
+        "startup_experience_relaxation": "Yes", "startup_turnover_relaxation": "Yes",
+        "emd_required": "Yes", "emd_amount": "425000",
+        "epbg_required": "Yes", "epbg_percent": "5",
+        "mii_compliance": "Yes",
+        "min_avg_turnover": "25500000", "min_experience_years": "5",
+        "total_quantity": None,
+    },
+    "GEM-2026-B-8100114_doc9965652.pdf": {  # product, nothing required
+        "bid_number": "GEM/2026/B/8100114",
+        "mse_experience_relaxation": "No", "mse_turnover_relaxation": "No",
+        "startup_experience_relaxation": "No", "startup_turnover_relaxation": "No",
+        "emd_required": "No", "emd_amount": None,
+        "epbg_required": "No", "epbg_percent": None,
+        "mii_preference": "No", "mii_compliance": None,
+        "min_avg_turnover": None, "min_experience_years": "3",
+        "total_quantity": "98",
+    },
+    "GEM-2026-B-7922876_doc9762022.pdf": {  # EMD per schedule: required, but no single amount
+        "bid_number": "GEM/2026/B/7922876",
+        "mse_experience_relaxation": "Yes", "mse_turnover_relaxation": None,
+        "startup_experience_relaxation": "Yes", "startup_turnover_relaxation": None,
+        "emd_required": "Yes", "emd_amount": None,
+        "epbg_required": None,  # its label ends page 2 and its value starts page 3
+        "mii_preference": "Yes",
+        "min_avg_turnover": None, "min_experience_years": None,
+        "total_quantity": "2",
+    },
+}
+
+
+@functools.lru_cache(maxsize=None)
+def _extract(pdf: str) -> tuple[list[PageText], dict[str, ExtractedField]]:
+    pages = PypdfTextExtractor(max_pages=300).extract((FIXTURES / pdf).read_bytes())
+    return pages, {f.name: f for f in LabelFieldExtractor().extract(pages)}
+
+
+@pytest.mark.parametrize("pdf,name,expected",
+                         [(pdf, name, value) for pdf, values in CURRENT.items() for name, value in values.items()])
+def test_current_bid_documents(pdf, name, expected):
+    pages, fields = _extract(pdf)
+    field = fields[name]
+    if expected is None:
+        assert field.status is FieldStatus.NOT_FOUND, field
+    else:
+        assert (field.status, field.value) == (FieldStatus.FOUND, expected)
+        assert quote_is_on_page(field.evidence, pages)
+
+
 def test_every_quote_is_really_on_its_page(pages, fields):
     for f in fields.values():
-        assert quote_is_on_page(f.evidence, pages), f.name
+        assert f.evidence is None or quote_is_on_page(f.evidence, pages), f.name
+
+
+def test_the_2025_document_has_none_of_the_2026_fields(fields):
+    for name in ("emd_amount", "epbg_percent", "mii_compliance", "min_avg_turnover", "min_experience_years"):
+        assert fields[name].status is FieldStatus.NOT_FOUND, name
 
 
 def test_hindi_mojibake_is_dropped_not_parsed(pages):
@@ -126,3 +191,15 @@ def test_indian_money_formats(raw, expected):
 
 def test_dates_are_day_first_india_time():
     assert n.ist_datetime("04-11-2025 09:00:00") == "2025-11-04T09:00:00+05:30"
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("/ MSE\nRelaxation for\nTurnover\nYes\n|\nComplete\n/ Startup", "Yes"),
+    # Seen live (GEM/2026/B/8075770): a reduced threshold, not an exemption.
+    ("/ MSE\nRelaxation for\nTurnover\nYes\n|\nPartial\n|\nTurn over value - 5 (in lakhs)\n", "Partial"),
+    ("/MSE Relaxation for Years of\nExperience and Turnover\nNo\n/Startup", "No"),
+    ("/MSE Exemption for Years of\nExperience and Turnover\nYes\n", "Yes"),  # the 2025 form
+])
+def test_relaxation_reads_complete_partial_or_none(text, expected):
+    fields = {f.name: f for f in LabelFieldExtractor().extract([PageText(number=1, text=text)])}
+    assert fields["mse_turnover_relaxation"].value == expected
