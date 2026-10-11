@@ -24,3 +24,7 @@ class UnexpectedResponse(SafetyError):
 
 class MissingContactEmail(SafetyError):
     """No contact email is set, so GeM could not reach whoever runs this tool."""
+
+
+class ResponseTooLarge(UnexpectedResponse):
+    """The size cap was hit while downloading. One document's problem, not a block."""

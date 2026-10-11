@@ -45,7 +45,7 @@ def fetch_bid(body: FetchIn, request: Request) -> FetchOut:
     except (BadBidLink, UrlNotAllowed) as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except UnexpectedResponse as error:
-        raise HTTPException(status_code=404, detail=f"GeM has no document at that link ({error}).") from error
+        raise HTTPException(status_code=404, detail=f"GeM didn't return a usable document ({error}).") from error
     except SafetyError as error:  # breaker open, blocked, budget used up
         raise HTTPException(status_code=409, detail=str(error)) from error
     except (InvalidPdf, EvidenceMismatch) as error:

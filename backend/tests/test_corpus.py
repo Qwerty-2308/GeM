@@ -163,3 +163,16 @@ def test_attachment_link_shapes_match_the_real_bid_pdf():
     urls = [link.url for link in pdf_links(SAMPLE_PDF.read_bytes())]
     assert {kind: sum(1 for u in urls if pattern.match(u)) for kind, pattern in ATTACHMENT_LINKS} == \
         {"spec": 1, "atc": 1}
+
+
+def test_one_oversized_document_is_skipped_not_the_whole_run(app, transport):
+    from gem_assistant.safety.errors import ResponseTooLarge
+
+    transport.responses.append(ResponseTooLarge("Response exceeded 20971520 bytes"))
+    _queue_pdf(transport)
+    result = app.corpus.collect(["pump"], limit=2)
+    assert result.run.outcome == "ok", result.run.message
+    manifest = json.loads((result.folder / "manifest.json").read_text())
+    assert [row["doc_id"] for row in manifest] == ["9000002"]
+    assert not app.safety.status().breaker.open
+    assert "too_large" in [r.outcome for r in app.safety.status().recent_requests]

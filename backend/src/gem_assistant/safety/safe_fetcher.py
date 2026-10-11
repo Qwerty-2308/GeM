@@ -19,7 +19,7 @@ from ..domain.models import RequestRecord
 from ..domain.ports import Clock, HttpResponse, HttpTransport, RequestLog
 from .circuit_breaker import CircuitBreaker
 from .daily_budget import DailyBudget
-from .errors import BlockedByGeM, MissingContactEmail, UnexpectedResponse
+from .errors import BlockedByGeM, MissingContactEmail, ResponseTooLarge, UnexpectedResponse
 from .rate_limiter import RateLimiter
 from .response_classifier import Expect, ResponseClassifier, ResponseKind
 from .url_policy import UrlPolicy
@@ -69,6 +69,9 @@ class SafeFetcher:
             self.requests_sent += 1
             try:
                 response = perform()
+            except ResponseTooLarge:  # the transport stopped reading at the size cap
+                self._record(label, None, "too_large")
+                raise
             except Exception as error:  # network failure: log it, never retry automatically
                 self._record(label, None, f"network_error: {type(error).__name__}")
                 raise
