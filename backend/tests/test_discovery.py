@@ -236,3 +236,21 @@ def test_api_fetch_reports_safety_stop(app, transport):
     assert response.status_code == 409
     assert client.post("/api/bids/fetch", json={"link": "8506455"}).status_code == 409
     assert len(transport.calls) == 1
+
+
+def test_run_lends_its_guard_rails_to_other_steps(app):
+    seen = []
+
+    def execute(run):
+        seen.append(run.keywords)
+        run.message = "custom"
+
+    run = app.discovery.run(trigger="corpus", keywords=["laptop", "a", "pump*", "Laptop"], execute=execute)
+    assert (run.outcome, run.message, run.trigger) == ("ok", "custom", "corpus")
+    assert seen == [["laptop"]]  # GeM's own keyword rules still apply
+
+
+def test_given_keywords_that_are_all_unusable_are_refused(app, source):
+    with pytest.raises(DiscoveryNotAllowed, match="keywords"):
+        app.discovery.run(trigger="corpus", keywords=["a", "x*"], execute=lambda run: None)
+    assert source.calls == []
