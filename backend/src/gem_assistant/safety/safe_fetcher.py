@@ -58,7 +58,7 @@ class SafeFetcher:
     def execute(
         self, url: str, method: str, perform: Callable[[], HttpResponse], expect: Expect
     ) -> HttpResponse:
-        with self._limiter.lock:  # one request at a time, ever
+        with self._limiter.hold():  # one request at a time, across every running copy
             self._ensure_contact()
             self._breaker.ensure_closed()
             self._policy.check(url, method)

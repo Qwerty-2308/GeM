@@ -72,9 +72,13 @@ class Container:
         breaker = CircuitBreaker(SqliteBreakerStateStore(db), clock)
         budget = DailyBudget(request_log, clock, settings.safety.daily_request_limit)
 
-        last = request_log.recent(1)
+        def last_request_at():
+            last = request_log.recent(1)
+            return last[0].at if last else None
+
         limiter = RateLimiter(clock, settings.safety.min_interval_seconds,
-                              last_request_at=last[0].at if last else None)
+                              last_request_source=last_request_at,
+                              lock_path=settings.data_dir / "fetch.lock")
 
         fetcher = SafeFetcher(
             transport=transport or HttpxTransport(settings.safety.request_timeout_seconds),

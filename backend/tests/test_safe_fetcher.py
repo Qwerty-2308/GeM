@@ -239,3 +239,44 @@ def test_an_empty_contact_email_counts_as_unset(monkeypatch, value):
 
     monkeypatch.setenv("GEM_CONTACT_EMAIL", value)
     assert Settings.from_env().safety.contact_email == PLACEHOLDER_CONTACT
+
+
+def test_the_gap_holds_across_two_running_copies_of_the_app(settings, clock):
+    """The web app and a command-line search are separate processes sharing one database:
+    the second must wait for the first's request, not just for its own."""
+    from .conftest import FakeTransport
+
+    first_transport, second_transport = FakeTransport(), FakeTransport()
+    first = Container.build(settings, clock=clock, transport=first_transport)
+    second = Container.build(settings, clock=clock, transport=second_transport)  # started before any request
+    first_transport.queue(); second_transport.queue()
+
+    first.fetcher.get("https://bidplus.gem.gov.in/all-bids")
+    second.fetcher.get("https://bidplus.gem.gov.in/all-bids")
+
+    assert clock.slept == [settings.safety.min_interval_seconds]
+
+
+def test_only_one_copy_of_the_app_talks_to_gem_at_a_time(tmp_path):
+    """Two processes each hold their own thread lock; the file lock is what keeps them apart."""
+    import threading
+    from datetime import datetime, timezone
+
+    from gem_assistant.safety.rate_limiter import RateLimiter
+    from .conftest import FakeClock
+
+    clock = FakeClock(datetime(2026, 1, 1, tzinfo=timezone.utc))
+    a = RateLimiter(clock, 4.0, lock_path=tmp_path / "fetch.lock")
+    b = RateLimiter(clock, 4.0, lock_path=tmp_path / "fetch.lock")
+    entered = threading.Event()
+
+    def second():
+        with b.hold():
+            entered.set()
+
+    with a.hold():
+        thread = threading.Thread(target=second)
+        thread.start()
+        assert not entered.wait(0.3), "the second copy got in while the first held the lock"
+    assert entered.wait(2)
+    thread.join()
