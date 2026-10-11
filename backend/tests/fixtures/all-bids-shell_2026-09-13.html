@@ -1,0 +1,2838 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Cache-Control" content="no-cache">
+        <meta http-equiv="Cache-Control" content="no-store">
+        <meta http-equiv="Cache-Control" content="must-revalidate">
+        <meta http-equiv="Cache-Control" content="pre-check=0">
+        <meta http-equiv="Cache-Control" content="post-check=0">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge, Chrome=1" />
+        <meta name="keywords" content="GeM, Goverenment E-Market, GeM SPV" />
+        <meta name="description" content="List of All Bids/RAs, Service Bids/RAs, Bunch Bids/RAs, Service Bunch Bids/RAs & Bids to RAs." />
+
+        <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+        <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+        <!--[if lt IE 9]>
+                        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+                        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+                <![endif]-->
+        
+        <link rel="icon" href="/resources//images/favicon.png" type="image/favicon">
+        <link href="/resources/css/font/stylesheet_v1.css" rel="stylesheet" type="text/css" media="all" />
+        <!--<link href="/resources/css/popup-style-v2.css" rel="stylesheet" type="text/css" media="all" />-->
+        <link href="/resources/css/font/font-awesome.css" rel="stylesheet" type="text/css" media="all" />
+        <link href="/resources/css/bootstrap.css" rel="stylesheet" type="text/css" media="all" />
+        <link href="/resources/css/fonts/google-font.css" rel="stylesheet">
+        <link href="/resources/css/style_v2-29.css" rel="stylesheet" type="text/css" media="all" />
+        <link href="/resources/css/cart_styles.css" rel="stylesheet" type="text/css" media="all" />
+        <link href="/resources/css/responsive3.css" rel="stylesheet">
+
+        <link href="/resources/css/jquery-ui.css" rel="stylesheet" type="text/css" media="all" />
+        <script src="/resources/js/vendor/jquery-3.6.0.min.js"></script>
+        <script src="/resources/js/vendor/jquery.writtenNumber.min.js"></script>
+        <script src="/resources/js/bootstrap.js"></script>
+        <script type="text/javascript" src="/resources/js/jquery-ui.js"></script>
+        <link href="/resources/css/jquery.fancybox.css" rel="stylesheet" type="text/css" media="all" />
+        <script src="/resources/js/modernizr.custom.js"></script>
+
+        <!-- SmartMenus jQuery plugin -->
+        <link href="/resources/css/jquery.smartmenus.bootstrap.css" rel="stylesheet">
+        <link href="/resources/css/createbid.css" rel="stylesheet" type="text/css" media="all" />
+        <link href="/resources/css/bootstrap-select.min.css" rel="stylesheet">
+        <script type="text/javascript" src="/resources/js/jquery.smartmenus.js"></script>
+        <script type="text/javascript" src="/resources/js/jquery.smartmenus.bootstrap.js"></script> 
+        <!--[if lte IE 9]>
+              <script src="js/ie.js" type="text/javascript"></script>
+              <![endif]-->
+
+        <title>GeM  |
+            All Bids on GeM        </title>
+        <style>
+            .navbar-inverse .navbar-nav>li {
+
+                margin-left: 9px;
+            }
+            #breadCrumb ul{
+                border-bottom: 1px solid #ededed;
+            }
+            #breadCrumb{
+                background: #f8f8f800;
+            }
+            .hover ul{ 
+                display:block; 
+            }
+            .navbar-brand>img, .selectTop {  
+                display: block;
+                width: 100%;
+            }
+            /*.bid-navset{
+                padding-top: 0.6em;
+            }*/
+            .navbar-brand{
+                max-width:100%;
+            }
+            .navbar-nav .dropdown-menu > li > a {
+                white-space: nowrap;
+            }
+            .input-group.date .dropdown-menu, .bootbox-body .dropdown-menu{
+                display: block;    
+            }
+
+        </style>
+        <script type="text/javascript">
+            $(document).keydown(function (event) {
+                if (event.keyCode == 123) { 
+                    return false;
+                } else if (event.ctrlKey && event.shiftKey && event.keyCode == 73) {     
+                    return false;
+                }
+            });
+            $(document).on("contextmenu", function (e) {        
+                e.preventDefault();
+            });
+            var requests = [];
+            $( document ).ready(function() {
+                 $('#divSearchCat').find('label').click(function(e) {
+                    e.preventDefault();
+                    var concept = $(this).attr('rel');
+                    var selected_cat_id = $(this).attr('category-id');
+                    var ele = parseInt(selected_cat_id) + 1;
+
+                    $('#divSearchCat label').removeClass('active-search');
+                    $(this).addClass('active-search');
+
+                    if(concept == 'Services'){
+                        $('#srch-main .simple-input').hide();
+                        $('#srch-main .suggester-input').val('');
+                        $('#srch-main .suggester-input').addClass('loading').show();
+                        $("#srch-main .suggester-input").prop('disabled', true);
+                        getServiceOptions('D');
+                    }else{
+                        $('#srch-main .simple-input').show();
+                        $('#srch-main .suggester-input').hide();
+                    }
+                    var current_val = concept;
+
+                    //var param = $(this).text(current_val);
+                    $('#h_search_category').val(concept);
+                    $('#h_cat_id').val(selected_cat_id);
+
+                    //sessionStorage.setItem('selected_cat_name',concept);
+                    //sessionStorage.setItem('selected_cat_id',selected_cat_id);
+                });
+               });
+
+function getServiceOptions(){
+        var ajax1 = $.ajax({
+            url:"https://gem.gov.in/searchresult/getServices",
+            type:"POST",
+            data:{},
+            success:function(qText){
+            }
+        });
+        requests.push(ajax1);
+        $.when.apply($,requests).done(function(){
+            var counter = 0;
+            $.each(arguments, function (i, data) {
+                console.log(data);
+                if(counter >= 1){
+                    return false;
+                }
+                var obj = (typeof data === 'object')?JSON.parse(JSON.parse(JSON.stringify(data))[0]):JSON.parse(data); 
+                if(typeof obj['list'] !="undefined"){
+                    var serviceOptions = obj['list'];
+                    var serviceName = [];
+                    for(var i=0;i<serviceOptions.length;i++){
+                        serviceName.push(serviceOptions[i]['display_name']);
+                    }
+                    sessionStorage.setItem('serviceNames',JSON.stringify(serviceName));
+                    bindSuggester(serviceName);
+                    $('.suggester-input').removeClass('loading');
+                    $(".suggester-input").prop('disabled', false);
+                }
+                counter++;
+            });
+        });
+    }
+    </script>
+    </head>
+    <body class="">
+
+        <header> 
+            <!---------------------------mobile header------------------------------------>
+            <section class="sec mobhead">
+                <div class="col-md-12 col-xs-12">
+                    <div class="col-xs-2 col-sm-2">
+                        <a href="#" class="mse"> <img src="https://bidplus.gem.gov.in/resources/images/menu-v5.svg" alt="menu"> </a>
+                    </div>
+                    <div class="col-xs-8 col-sm-8">
+                        <div class="text-center">
+                            <a href="https://gem.gov.in/" title="GeM Logo, Government of India"><img src="https://bidplus.gem.gov.in/resources/images/gem-new-logo-v4.svg" alt="GeM Logo, Government of India" style="width: 60%;"></a>
+                        </div>
+                    </div>
+                    <div class="col-xs-2 col-sm-2">
+                        <div class="btn-group pull-right mobile-toggle">
+                            <a class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <img src="https://bidplus.gem.gov.in/resources/images/login-v4.svg" alt="menu">
+                            </a>
+                            <ul class="dropdown-menu mobile-menu">
+                                <li><a href="#">Login</a></li>
+                                <li><a href="#">Sign Up</a></li>
+                                <li><a href="#">&nbsp;&nbsp;Buyers</a></li>
+                                <li><a href="#">&nbsp;&nbsp;Sellers</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-sm-12 col-md-6 col-xs-12 ">
+                    <div class="radio serch-radio">
+                        <label class="active-search">Products</label>
+                        <label>Services</label>
+                        <label>Content</label>
+                    </div>
+                    <div class="s003">
+                        <form style="margin: 0;">
+                            <div class="inner-form">
+                                <div class="input-field second-wrap">
+                                    <input id="search" type="text" placeholder="Enter Keywords?">
+                                </div>
+                                <div class="input-field third-wrap">
+                                    <button class="btn-search" type="button">
+                                        <i class="fa fa-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+                <div class="mmen">
+                    <a href="#" class="mobmelo"> <img src="https://bidplus.gem.gov.in/resources/images/gem-new-logo-v2.svg" alt="gem"> </a>
+                    <a href="#" class="sd"><img src="https://bidplus.gem.gov.in/resources/images/vcancel-v4.svg" alt="gem"></a>
+                    <ul class="sc">
+                        <!--<li>
+                           <a href="" target="_blank">LMS</a>
+                           </li>-->
+                        <li class="menuac">
+                            <a href="#">Need Help ?</a>
+                            <ul>
+                                <li><a href="https://gem.gov.in/userFaqs">FAQs</a></li>
+                                <li> <a href="https://gem.gov.in/training/videos/buyers" target="_blank">Video Guides</a></li>
+                                <li><a href="https://gem.gov.in/training" target="_blank">Training Event Calendar</a></li>
+                                <li><a href="https://lms.gem.gov.in/" target="_blank">LMS</a></li>
+                            </ul>
+                        </li>
+                        <!--li>
+                           <a href="/new-categories"> </a>
+                           </li-->
+                        <li class="menuac">
+                            <a href="javascript: void(0)">Bid</a>
+                            <ul>
+                                <li><a href="" target="_blank">Ongoing Bids</a></li>
+                                <li> <a href="" target="_blank">Bid/RA Status</a></li>
+                            </ul>
+                        </li>
+
+                        <li>
+                            <a href="https://sso.gem.gov.in/ARXSSO/oauth/doLogin"> Login</a>
+                        </li>
+                        <li class="menuac">
+                            <a href="javascript: void(0)">Sign Up</a>
+                            <ul>
+                                <li>
+                                    <a href="https://mkp.gem.gov.in/registration/signup#!/buyer">Buyers </a>
+                                </li>
+                                <li>
+                                    <a href="https://mkp.gem.gov.in/registration/signup#!/seller">Sellers</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>
+                            <a href="https://gem.gov.in/training">Training</a>
+                        </li>
+                        <li>
+                            <a href="https://gem.gov.in/forum">Forums </a>
+                        </li>
+                        <li>
+                            <a href="https://gem.gov.in/gallery">Gallery</a>
+                        </li>
+                        <li class="fml">
+                            <a href="https://gem.gov.in/support">Resources </a><span>|</span>
+                        </li>
+                        <li class="menuac">
+                            <a href="javascript: void(0)">Corporate</a>
+                            <ul>
+                                <li>
+                                    <a href="https://gem.gov.in/aboutus">About Us</a>
+                                </li>
+                                <li>
+                                    <a href="https://gem.gov.in/mou">MoU's</a>
+                                </li>
+                                <li>
+                                    <a href="https://gem.gov.in/statistics">Statistics</a>
+                                </li>
+                                <li>
+                                    <a href="https://gem.gov.in/contactUs">Contact Us</a>
+                                </li>
+                                <li>
+                                    <a href="https://gem.gov.in/landing/index/careers">Careers</a>
+                                </li>
+                                <li>
+                                    <a href="https://gem.gov.in/RTI" title="Right to Information">Right to Information</a>
+                                </li>
+                                <li>
+                                    <a href="https://gem.gov.in/testimonial">Testimonials</a>
+                                </li>
+                                <li>
+                                    <a href="https://gem.gov.in/web-information-manager" title="Web Information Manager">Web Information Manager</a>
+                                </li>
+                                <li>
+                                    <a href="https://gem.gov.in/help" title="Help">Help</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>
+                            <a href="https://gem.gov.in/gemtickets/create">Support Desk</a>
+                        </li>
+                        <li class="ges">
+                            <a href="javascript: void(0)"> 1-800-419-3436 / 1-800-102-3436</a>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+            <!-------------------------------end------------------------------------------->
+            <section class="deskhead">
+                                <!--NAVIGATION-->
+                <section id="indexHeader sce ">
+                    <div class="topStrip sce black-top">
+                        <div class="container" id="content-fix">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="leftLinks">
+                                        <ul class="inline-menu text-left pull-left">
+                                            <li class="tabindex-focus">
+                         <div class="select-style" style="width:80px;">
+                           <select id="languageChange">
+                                                            <option value="en" >English</option>
+                              <!--<option value="hi" >हिंदी</option>
+                              <option value="tamil">தமிழ் </option>
+                              <option value="bengali">বাংলা </option>
+                              <option value="assamese"> অসমীয়া</option>
+                              <option value="punjabi">ਪੰਜਾਬੀ</option>
+                              <option value="gujarati">ગુજરાતી</option>
+                              <option value="kannada">ಕನ್ನಡ </option>
+                              <option value="marathi">मराठी</option>
+                              <option value="malayalam"> മലയാളം</option>
+                              <option value="odia">  ଓଡ଼ିଆ </option>
+                              <option value="telugu">తెలుగు</option>-->
+                           </select>
+                        </div>
+                     </li>
+                                            <!--<li><p class="home-new"><a title="Home" href="https://gem.gov.in/"><img src="https://bidplus.gem.gov.in/resources/images/home.svg" alt="Home" /></a></p></li>-->
+                                            <li><a href="#" title="High Contrast"><span class="fdn"><i class="fa fa-circle" aria-hidden="true"></i> Dark Mode</span></a></li>
+                                            <li class="font-size-left">
+                                                <span>Font Size</span>
+                                                <a href="#" title="Decrease font size" class="fm ">A- </a>
+                                                <a href="#" title="Reset font size" class="fd "> A </a>
+                                                <a href="#" title="Increase font size" class="fp "> A+</a>
+                                            </li>
+                                            <li class="needhelpli"><a href="#pagi_content" title="Skip to Main Content">Skip to Main Content</a></li>
+                                        </ul>
+
+                                        <div class="clearfix"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <ul class="inline-menu text-right pull-right">
+                                                                                <li class="dropdown top-drop on-focus needhelpli">
+                                            <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Need Help ? <span class="caret"></span></a>
+                                            <ul class="dropdown-menu dropdown-top  ">
+                                                <li><a href="https://gem.gov.in/userFaqs" title="FAQs">FAQs</a>
+
+                                                </li>
+                                                <li><a href="https://gem.gov.in//feedback" title="Video Guides" target="_blank">Feedback</a>
+
+                                                </li>
+                                               <!-- <li><a href="https://gem.gov.in/training/videos/buyers" title="Video Guides" target="_blank">Video Guides</a>
+
+                                                </li>-->
+                                                <li><a href="https://gem.gov.in/gemtickets/create" title="Raise-a Ticket">Raise-a Ticket</a></li>
+                                                <li><a href="https://gem.gov.in/help" title="Document Help">Document Help</a></li>
+                                                <li> <a href="https://gem.gov.in/contactUs" title="Contact Us">Contact Us</a></li>
+                                                <li class='last-style'> <a href="#" title="Contact Us"></a></li>
+
+                                            </ul>
+                                        </li>
+                                    </ul>
+
+
+                                    <div class="clearfix"></div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="top-logo-black new-hearder sticky">
+                        <div class="container" id="content-fix">
+                            <div class="row logwrp">
+                                <div class="col-sm-3 col-md-2 clearfix">
+                                    <a class="navbar-brand" title="GeM Logo, Government of India" href="https://gem.gov.in/"><img src="https://bidplus.gem.gov.in/resources/images/gem-new-logo-v4.svg" alt="GeM Logo, Government of India" /></a> 
+                                </div>
+                                                                <div class="col-sm-3 col-md-6 col-xs-12">
+                                    <div class="radio radio-button serch-radio" id="divSearchCat">
+                                        <label class="active-search" rel="Products" category-id="0">Products</label>  
+                                        <label rel="Services" category-id="2">Services</label>  
+                                        <label rel="Content" category-id="1">Content</label>  
+                                        </div>  
+                                    <div class="s003">
+                                        <form id="srch-main" class="form-inline" action="https://gem.gov.in/searchresult/query/" method="GET">
+                                            <div class="inner-form">
+                                              
+                                                <div class="input-field second-wrap">
+                                                    <input autocomplete="off" name="qs" type="text" class="suggester-input suggester form-control" placeholder="Looking for something on GeM?" id="search" value="" style="display:none;"/>  
+                                                    <input name="q" type="text" class="simple-input form-control mkpProductSearchText" placeholder="Looking for something on GeM?" id="search" value="" >  
+                                                    <input name="lang" type="hidden" id="lang" value="english"/>  
+                                                    <input name="search_category" type="hidden" id="h_search_category" value=""/>  
+                                                    <input name="category_id" type="hidden" id="h_cat_id" value="0"/>  
+                                                    </div>  
+                                                <div id="suggest-options" style="display:none;"><ul class="frmCtrl" tabindex="0"><li class="token-search" style="width: 20px;"></li></ul></div>
+                                                <div class="input-field third-wrap">
+                                                    <button class="btn-search" type="submit">
+                                                        <i class="fa fa-search"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                                <div class="col-sm-3 col-md-4 col-xs-12">
+                                                                
+                                    <div id="navbar" class="navbar-collapse row collapse sce">
+                                        <ul class="nav navbar-nav bid-navset pull-right" data-smartmenus-id="15173943094477573">
+                                   <li  class="on-focus" >
+                                                                                               
+                                                         
+                                                                                                                    <a href="#"  title="Forward Auction">Forward Auction &nbsp; <i class="fa fa-caret-down text-danger" aria-hidden="true"></i></a>
+                                                        
+                                                                                                                    <ul class="dropdown-menu">
+                                                            
+                                                                    <li class=" on-focus">
+                                                                        <a href="https://forwardauction.gem.gov.in/eprocure/home" title="Ongoing Auctions">Ongoing Auctions</a>
+                                                                    </li>
+                                                                    
+                                                                    <li class=" on-focus">
+                                                                        <a href="https://forwardauction.gem.gov.in/eprocure/bidder-registration" title="FA Buyer Registration">FA Buyer Registration</a>
+                                                                    </li>
+                                                                    
+                                                                    <li class=" on-focus">
+                                                                        <a href="https://forwardauction.gem.gov.in/eprocure/x-login" title="FA Buyer Log-in">FA Buyer Log-in</a>
+                                                                    </li>
+                                                                                                                            </ul>
+                                                    </li>
+                                                      <li  class="on-focus" >
+                                                                                               
+                                                         
+                                                                                                                    <a href="#"  title="Bids">Bids &nbsp; <i class="fa fa-caret-down text-danger" aria-hidden="true"></i></a>
+                                                        
+                                                                                                                    <ul class="dropdown-menu">
+                                                            
+                                                                    <li class=" on-focus">
+                                                                        <a href="/all-bids" title="List of Bids">List of Bids</a>
+                                                                    </li>
+                                                                    
+                                                                    <li class=" on-focus">
+                                                                        <a href="https://bidnext.gem.gov.in/bidnext?transactionCode=guestLogin" title="Railways Bids">Railways Bids</a>
+                                                                    </li>
+                                                                                                                            </ul>
+                                                    </li>
+                                                    <li><a class="btn-nov1" title="Login" href=https://sso.gem.gov.in/ARXSSO/oauth/login>Login</a></li>  <li class="on-focus">
+                                                                                               
+                                                         
+                                                                                                                    <a href="#" class="" title="Sign Up">Sign Up&nbsp;<i class="fa fa-caret-down text-danger" aria-hidden="true"></i>  </a>
+                                                        
+                                                                                                                    <ul class="dropdown-menu">
+                                                            
+                                                                    <li class=" on-focus">
+                                                                        <a href="https://mkp.gem.gov.in/registration/signup#!/buyer" title="Buyers">Buyers</a>
+                                                                    </li>
+                                                                    
+                                                                    <li class=" on-focus">
+                                                                        <a href="https://mkp.gem.gov.in/registration/signup#!/seller" title="Sellers">Sellers</a>
+                                                                    </li>
+                                                                                                                            </ul>
+                                                    </li>
+                                                                                                
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="clearfix"></div>
+                              
+                            </div>
+                        </div>
+                    </div>
+
+                    <!--MAIN HEADER-->
+                </section>
+                                <section class="new-nov black-top"  style="padding: 0px;">
+                    <div class="container" id="content-fix">
+                        <div class="row">
+                            <div class="col-md-2 col-xs-6">
+                                <div class="cat_menu_container">
+                                    <div class="cat_menu_title d-flex flex-row align-items-center justify-content-start">
+                                        <div class="cat_menu_text"><i class="fa fa-bars" style="    margin-right: 13px;"></i> categories </div>
+                                    </div>
+                                    <ul class="cat_menu">
+
+                                        <li class="hassubs"><a href="#">Products &nbsp;&nbsp;<i class="fa fa-angle-right" style="font-size:18px"></i></a>
+                                            <ul class="dropdown-cate">
+                                                <li>
+                                                    <a href="#" class="dropdown-cate-a">Computers</a>
+                                                    <div class="filter-bid clearfix">
+                                                        <p><a href="https://mkp.gem.gov.in//computers-desktop-computer/search">Desktops</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//computers-0806nb/search">Laptops</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//computers-0806aio/search">All in One</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//computers-server/search">Servers</a></p>
+                                                    </div>
+                                                </li>
+                                                <li>
+                                                    <a href="#" class="dropdown-cate-a">Office Machines</a>
+                                                    <div class="filter-bid clearfix">
+                                                        <p><a href="https://mkp.gem.gov.in//duplicating-machines-0901mfm/search" >Multifunction Machines</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//computer-printer-0901print/search" >Printers</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//paper-processing-machines-and-accessories-paper-shredding-machines79/search" class=" ">Paper Shredding Machines</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//projectors-and-supplies-28052-mmp/search" >Multimedia Projector (MMP)</a></p>
+                                                    </div>
+                                                </li>
+                                                <li>
+                                                    <a href="#" class="dropdown-cate-a">Automobiles</a>
+                                                    <div class="filter-bid clearfix">
+                                                        <p><a href="https://mkp.gem.gov.in//cars/search">Cars</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//buses/search">Buses</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//utility-vehicles/search" >Utility Vehicles</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//ambulances/search">Ambulance</a></p>
+                                                    </div>
+                                                </li>
+                                                <li>
+                                                    <a href="#" class="dropdown-cate-a">Office Supplies</a>
+                                                    <div class="filter-bid clearfix">
+                                                        <p><a href="https://mkp.gem.gov.in//un000000-un000000-1-un000000-2-ball-point-pen/search" class=" ">Ball Point Pen</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//gel-pen/search">Gel Pen</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//writing-and-printing-paper-plain-copier-paper/search">Printer or Photo Copier Paper</a></p>
+                                                    </div>
+                                                </li>
+                                                <li>
+                                                    <a href="#" class="dropdown-cate-a" >Appliances</a>
+                                                    <div class="filter-bid clearfix">
+                                                        <p><a href="https://mkp.gem.gov.in//domestic-appliances-and-supplies-and-consumer-electronic-products-consumer-electronics-audio-and-visual-equipmentold-28051-tv/search">Televisions</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//air-conditioner/search" >Air Conditioner</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//online-ups/search">Online UPS</a></p>
+                                                    </div>
+                                                </li>
+                                                <li>
+                                                    <a href="#" class="dropdown-cate-a">Furniture</a>
+                                                    <div class="filter-bid clearfix">
+                                                        <p><a href="https://mkp.gem.gov.in//revolving-chair/search">Revolving Chair</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//-chairs-office/search">Office Chairs</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//almirah--steel/search">Steel Almirah</a></p>
+                                                    </div>
+                                                </li>
+                                                <li>
+                                                    <a href="#" class="dropdown-cate-a">Specialized Vehicles</a>
+                                                    <div class="filter-bid clearfix">
+                                                        <p><a href="https://mkp.gem.gov.in//25101900-hopper-tipper-dumper/search">Hopper Tipper Dumper</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//tractors/search">Tractors</a></p>
+                                                    </div>
+                                                </li>
+                                                <li>
+                                                    <a href="#" class="dropdown-cate-a">Softwares</a>
+                                                    <div class="filter-bid clearfix">
+                                                        <p><a href="https://mkp.gem.gov.in//operating-system-software/search">Operating System</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//geographic-information-system-gis-software/search">GIS Software</a></p>
+                                                    </div>
+                                                </li>
+                                                <li>
+                                                    <a href="#" class="dropdown-cate-a">Two Wheeler</a>
+                                                    <div class="filter-bid clearfix">
+                                                        <p><a href="https://mkp.gem.gov.in//two-wheeler-motor-cycles-and-scooters-and-mopeds/search">Motor Cycle</a></p>
+                                                        <p><a href="https://mkp.gem.gov.in//bicycle/search">Bicycle</a></p>
+                                                    </div>
+                                                </li>
+
+                                            </ul>
+                                        </li>
+
+                                       <li class="hassubs">
+                              <a href="https://mkp.gem.gov.in/services#!/browse/">Services</a>
+                             
+                           </li>
+                           <li><a href="https://mkp.gem.gov.in/browse_nodes/browse_list#!/categories">Browse All Categories</a></li>
+						   <li><a href="https://mkp.gem.gov.in/search?q=">Browse All Products</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+
+                                <div id="navbar" class="navbar-collapse collapse sce">
+                                    <ul class="nav navbar-nav bid-nov-set" data-smartmenus-id="15173943094477573">
+
+                                        <li>
+                                            <a href="https://gem.gov.in/page/detail/26/english" title="GeM Advantages" id="nov-color">GeM Advantages</a>
+                                        </li>
+                                        <li>
+                                            <a href="https://gem.gov.in/page/detail/27/english" title="GeM Exclusive" id="nov-color">GeM Exclusive</a>
+                                        </li>
+                                        <li>
+                                            <a href="https://gem.gov.in/userFaqs" title="" id="nov-color">FAQs</a>
+                                        </li>
+                                        <li>
+                                            <a href="https://gem.gov.in/contactUs" title="" id="nov-color">Contact Us</a>
+                                        </li>
+										<li>
+                                            <a href="https://gem.gov.in/user_feedback" title="" id="nov-color">Rate a Seller</a>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="clearfix"></div>
+
+                            </div>
+                            <div class="col-md-2">
+                                <div class="new-on-gem">
+                                    <ul class="inline-menu ">
+                                        <li><a href="https://gem.gov.in/latest"><img src="https://bidplus.gem.gov.in/resources/images/new-on.png"> New on GeM</a></li>
+                                        <li><a href="https://gem.gov.in/landing/index/allnews" id="scrolltop-maincontent1"><i class="fa fa fa-bell-o"></i></a></li>
+                                    </ul>
+                                    <p></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                            </section>
+        </header>
+        <div class="cd-popup-lang modal" style="display: none;" tabindex="-1" style="" role="alert" id="language_modal">
+            <div class="cd-popup-container" style="border-radius: 5px; background: url(https://assets-bg.gem.gov.in/resources/css/popup/popup4.png);">
+                <p id="lang_alert" style="margin-left: 50px;">
+                    This will lead you to GeM <span id="lang_text"></span> website.                <br /><br />
+                <span id="lang_change_advisory" style="color: red; font-size: 12px;">Warning: All unsaved 'data entries' will be lost after language change.</span>
+                </p>
+                <span style="display: none;" id="lang_value"></span>
+                <div class="col-md-12 popborder">
+                    <ul class="cd-buttons">
+                        <li class="on-focus" tabindex="100"><a href="javascript:void(0);" id="switchLang" class="animated-button victoria-two">OK</a></li>
+                        <li class="on-focus" tabindex="101"><a href="javascript:void(0);" data-dismiss="modal" aria-hidden="true">Cancel</a></li>
+                    </ul>
+                </div>
+                <div class="clearfix"></div>
+                <a href="javascript:void(0);" class="cd-popup-close img-replace" data-dismiss="modal" aria-hidden="true">Close</a>
+            </div>
+        </div><!--<link rel="stylesheet" type="text/css" href="https://bidplus.gem.gov.in//resources/css/progress-wizard.min.css">-->
+<style>
+.card {
+    box-shadow: 0 1px 5px #ccc;
+    border-top: 3px solid #fbb203;
+    margin-bottom: 20px;
+    padding: 10px;
+    font-size: 12px;
+    line-height: 1.3;
+    margin-top:0px;
+}
+.card-body{
+    padding: 15px 15px 5px 15px;
+    line-height: 20px;
+}
+.search{
+    margin-top:20px;
+    display:none;
+}
+.filterhead{
+    color: #0F5E8B;
+    font-size: 1.5em;
+    float: left;
+}
+.sidefilter{
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display:none;
+    background-color: #f4f4f4;
+    padding-top: 10px;
+    margin-top: 20px;
+    font-size:14px;
+}
+.sidefilter .checkbox input[type=checkbox]{
+    margin-top: 1px;
+}
+@media only screen and (max-width: 1000px) {
+    .sidefilter{
+        display:none;
+        position:relative;
+    }
+}
+h4{
+    font-size: 1em;
+    color: #0F5E8B;
+}
+h5{
+    color: #0F5E8B;
+}
+.filtermargin{
+    margin-top:20px;
+}
+.block_header{
+    height: auto;
+    overflow: hidden;
+    padding: 0px;
+    margin-bottom: 0px;
+}
+.alert{
+    margin-top:20px;
+}
+.go{
+    background-color: #0F5E8B;
+    color:#fff;
+}
+.filterError{
+    color:red;
+    font-size: 0.7em;
+    position: absolute;
+}
+.popover{
+    overflow-wrap: anywhere;
+    max-width: 100%!important;
+}
+.card-body .popover-content{
+    overflow-wrap: anywhere;
+    width:250px!important;
+} 
+/*paging */
+ul.simple-pagination {
+    list-style: none;
+}
+.simple-pagination {
+    display: block;
+    overflow: hidden;
+    padding: 0 5px 5px 0;
+    margin: 0;
+}
+.simple-pagination ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.simple-pagination li {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    float: left;
+}
+.light-theme a, .light-theme span {
+    float: left;
+    color: #666;
+    font-size:14px;
+    line-height:24px;
+    font-weight: normal;
+    text-align: center;
+    border: 1px solid #BBB;
+    min-width: 14px;
+    padding: 0 7px;
+    margin: 0 5px 0 0;
+    border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    background: #efefef;
+
+}
+.light-theme a:hover {
+    text-decoration: none;
+    background: #FCFCFC;
+}
+.light-theme .current {
+    background: #0F5E8B;
+    color: #FFF;
+    border-color: #444;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 1), 0 0 2px rgba(0, 0, 0, 0.3) inset;
+    cursor: default;
+}
+.light-theme .ellipse {
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    font-weight: bold;
+    cursor: default;
+}
+hr{
+    margin-top: 10px;
+    margin-bottom: 15px;
+}
+input[type=search]::-webkit-search-cancel-button {
+    -webkit-appearance: searchfield-cancel-button;
+}
+.start_date{
+    color: #0ba10b;
+}
+.end_date{
+    color: #e1950b;
+}
+.bid_no{
+    background: #fff;
+    color: #0F5E8B;
+    padding: 5px;
+    width: auto;
+    font-weight:bold;
+}
+.bid_title{
+    color:#000;
+}
+.bid_no_hover:hover{
+    text-decoration: underline !important;
+}
+.page_title{
+    font-size:1.4em;
+}
+.totalRecord{
+    color: #0F5E8B;;
+}
+.sort{
+    float:right;
+}
+.row-flex {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 15px;
+}
+.pos-bottom{
+    position: absolute;
+    bottom: 5px;
+}
+.dropdown-menu {
+    right:0;
+    left: unset;
+    top: 88%;
+}
+.dropdown{
+    color:#0F5E8B;
+}
+.input-group-btn .btn{
+    font-size:17px;
+}
+#search_concept{
+    text-transform:none;
+    font-family: Roboto;
+    font-size:14px;
+}
+.input-group-btn .searchtype{
+    background: #ddd;
+    color: #333;
+}
+.input-group-btn .searchtype:hover{
+    background: #ddd;
+    color: #333;
+}
+.sort_button{
+    background: #ddd;
+    color: #333;
+}
+.dropdown-menu li:hover{
+    background: #0F5E8B;
+}
+.dropdown-menu li {
+    border-bottom: 1px solid #ececec;
+    margin: 0px;
+    text-align: -webkit-center;
+}
+.dropdown-menu li a {
+    padding: 10px;
+    margin:0px;
+    cursor: pointer;
+}
+.dropdown-menu li a:hover {
+    color:#fff;
+}
+.checkbox label {
+font-size:12px;
+}
+.otherDetails{
+    margin-right:10px;
+    cursor: pointer;
+}
+.blink{
+    animation: blinker 1s linear infinite;
+    font-weight: 600;
+    font-size: 15px;
+    color:#0F5E8B;
+    cursor:pointer;
+    margin-left:10px;
+}
+@keyframes blinker {
+    50% {
+        opacity: 0;
+
+    }
+}
+.btn-default{
+    background-color: #0f5e8b;
+    border-color: #ccc;
+    color: white;
+}
+.custom-alert-css{
+    margin-top:20px!important;
+    margin-bottom:0px!important;
+    text-align: center;
+}
+</style>
+<div class="container">
+        <div class ="row search">
+        <div class="col-md-7 pull-left">
+            <span class="page_title">Bid Listing</span>
+                        <span  id="old_bid_dash"><a href="/advance-search">&nbsp;&nbsp;Advance Search <i class="fa fa-external-link" aria-hidden="true"></i></a> </span>
+        </div>
+        <div class="col-md-5 pull-right">
+            <div data-toggle="popover" class="pull-left"   data-trigger="hover" data-placement="bottom" data-html="true"  data-content="Bid Number, Department Name, Ministry Name, Items, BOQ Title,<br/> Category Name, Consignee Location (City and State) can be searched here.<br/><br/><b>Contains:</b> This will help you to find all the Bid/RA with keyword entered in the search box any where in any search parameters. <br/><b>Exact Search:</b> This will help you find the Bid/RA with the exact string of keywords entered in the search box. <br/><br/>It may take up to 15 mins to reflect newly published bids or modified bids to show up in search results.">
+                <i class="fa fa-info-circle" aria-hidden="true"></i>&nbsp;
+            </div>
+            <div class="input-group">
+            <div class="input-group-btn">
+                <button type="button" class="btn  btn-default dropdown-toggle searchtype" data-toggle="dropdown">
+                    <span id="search_concept">Contains</span> <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu" role="menu">
+                    <li><a onclick="searchType('fullText')">Contains</a></li>
+                    <li class="last-style"><a onclick="searchType('exact')">Exact Search</a></li>
+                    </ul>
+            </div>
+                <input type="search" class="form-control" id="searchBid" name="searchBid" placeholder="Enter Keyword" value="" autocomplete="off">
+                <div class="clearfix"></div>
+                <span class="filterError" id="searchError"></span>
+                <span class="input-group-btn">
+                    <button class="btn btn-default search_btn" id= "searchBidRA" type="button" style="font-size:17px;"><span class="glyphicon glyphicon-search"></span></button>
+                </span>
+            </div> 
+        </div>
+    </div>
+    <div class="clearfix"></div>
+    <div class="alert alert-info custom-alert-css" role="alert">
+        It may take up to 15 mins to reflect newly published bids or any modification in bids to show  up in search results.    </div>
+    <div class="clearfix"></div>
+    <div class ="row">
+        <div class="col-md-2 sidefilter">
+            <h3 class="grid-title filterhead"><i class="fa fa-filter"></i> Filters</h3>
+            <button class="btn btn-link btn-sm pull-right" onclick="clearAll()" style="cursor: pointer;">Reset</button>
+            <div class="clearfix"></div>
+            <hr style="color:#0F5E8B;border:1px solid;">
+            <div class="checkbox">
+                <label><input type="checkbox" id="ongoing_bids" onclick="bidStatusTypeFilter('ongoing_bids')" class="icheck by_status_type">Ongoing Bids/RA</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" id="bidrastatus" onclick="bidStatusTypeFilter('bidrastatus')" class="icheck by_status_type">Bid/RA Status</label>
+            </div>
+            
+            <div class="filtermargin"></div>
+            
+            <h4>By Bid Type:</h4>
+            <div class="checkbox">
+                <label><input type="checkbox" id="all" onclick="typeFilter('all')" class="icheck by_type"> All Bid/RAs</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" id="product" onclick="typeFilter('product')" class="icheck by_type"> Product Bid/RAs</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" onclick="typeFilter('service')" id="service" class="icheck by_type"> Service Bid/RAs</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" onclick="typeFilter('bidToRA')" id="bidToRA" class="icheck by_type"> Bid To RAs</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" onclick="typeFilter('custom')" id="custom" class="icheck by_type"> Product Custom Bid/RAs</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" onclick="typeFilter('boq')" id="boq" class="icheck by_type"> BOQ Bids</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" onclick="typeFilter('rcbid')" id="rcbid" class="icheck by_type"> Rate Contract Bids</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" onclick="typeFilter('gt')" id="gt" class="icheck by_type"> Global Tender</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" onclick="typeFilter('lt')" id="lt" class="icheck by_type"> Limited Tender</label>
+            </div>
+            <div class="checkbox">
+                <label><input type="checkbox" onclick="typeFilter('st')" id="st" class="icheck by_type"> Single Tender</label>
+            </div>
+            
+            <div class="filtermargin"></div>
+
+            <h4>By Bid Value:</h4>
+            <div class="checkbox">
+                <label><input type="checkbox" onclick="typeFilterHighBid('highValue')" id="highValue" class="icheck by_type"> High Value Bids<span data-toggle="tooltip" data-placement="top" title="Bids where buyer mentioned the estimated bid &#013value equal to or greater than Rs 2 Cr">
+                    <i class="fa fa-info-circle" aria-hidden="true"></i>
+                </span></label>
+            </div>
+
+            <div class="filtermargin"></div>
+            
+            <h4 class="bidrastatus">By Bid/RA Status:</h4>
+            <div class="checkbox bidrastatus">
+                <label><input type="checkbox" id="tech_evaluated" onclick="bidStatusFilter('tech_evaluated')" class="icheck by_status"> Technical Evaluated</label>
+            </div>
+            <div class="checkbox bidrastatus">
+                <label><input type="checkbox" id="fin_evaluated" onclick="bidStatusFilter('fin_evaluated')" class="icheck by_status"> Financial Evaluated</label>
+            </div>
+            <div class="checkbox bidrastatus">
+                <label><input type="checkbox" id="bid_awarded" onclick="bidStatusFilter('bid_awarded')" class="icheck by_status"> Bid /RA Awarded</label>
+            </div>
+
+            <div class="filtermargin"></div>
+
+            <h5>Bid End Date (From):</h5>
+            <div class="input-group date" >
+                <input type="text" id="fromEndDate" onchange="endDateFilter()" class="form-control datepicker" autocomplete="off">
+                <span class="input-group-addon bg-blue"><i class="glyphicon glyphicon-calendar"></i></span>
+            </div>
+            
+            <p class="filterError" id="fromEndDateError"></p>
+            <div class="filtermargin"></div>
+            <h5>Bid End Date (To):</h5>
+            <div class="input-group date" >
+                <input type="text" id="toEndDate" onchange="endDateFilter()" class="form-control datepicker" autocomplete="off">
+                <span class="input-group-addon bg-blue"><i class="glyphicon glyphicon-calendar"></i></span>
+            </div>
+            <p class="filterError" id="toEndDateError"></p>
+            <div class="filtermargin"></div>
+            <div class="filtermargin"></div>
+        </div>
+        
+        <div class="col-md-10 bids" id="bidCard">
+            
+        </div>
+    </div>
+</div>
+<!-- Modals -->
+
+<div id="myModal5" class="modal fade" role="dialog">
+    <div class="modal-dialog modal-lg">
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="myModalLabel"><b>Corrigendum</b></h4>
+            </div>
+        <div class="modal-body" id="atcBody">
+        </div>
+                    <div class="modal-footer" style="text-align:justify;font-size: 12px;">Disclaimer: This corrigendum has been published by the Buyer after due approval of the Competent Authority in Buyer Organization. Buyer organization is solely responsible for the impact of the above clauses on the bidding process, its outcome and consequences thereof including any eccentricity / restriction arising in the bidding process owing to publication of such corrigendum due to modification of technical specification and / or terms and conditions governing the bid. Buyer has been allowed to publish this corrigendum for upfront information of prospective sellers so that bidder can respond to bid with matching catalog and conditions of bid (if modulated due to publication of the corrigendum on the GeM portal). However, it is to be noted that buyer organization is solely responsible for the corrigendum.</div>
+                </div>
+
+    </div>
+</div>
+
+<div class="modal fade" id="representation_modal_ajax">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+                    <h4 class="modal-title"></h4>
+
+            </div>
+            <div class="container"></div>
+            <div class="modal-body">
+
+            </div>
+            <div class="modal-footer">  <a href="#" data-dismiss="modal" class="btn">Close</a>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/simplePagination.js/1.4/jquery.simplePagination.min.js"></script>
+<script>
+$(document).ready(function () {
+    defaultLoad();
+});
+
+function defaultLoad(){
+    window.param = {};
+    window.param['searchBid'] = "";
+    window.param['searchType'] = "fullText";
+    window.filter = {};
+    window.filter['bidStatusType'] = "ongoing_bids";
+    window.filter['byType'] = "all";
+    window.filter['highBidValue'] = "";
+    window.filter['byEndDate'] = {};
+    window.filter['byEndDate']['from'] = '';
+    window.filter['byEndDate']['to'] = '';
+    window.filter['sort']="Bid-End-Date-Oldest";
+    window.currentPage = 1;
+    $("input.by_status").attr("disabled", true);
+    $(".bidrastatus").hide();
+    loadBids();
+}
+
+$('.datepicker').bind('keypress', function(e) {
+    e.preventDefault(); 
+});
+
+$(document).ajaxComplete(function() {
+  $('[data-toggle="popover"]').popover();  
+});
+
+$('body').on('click', function (e) {
+    $('[data-toggle=popover]').each(function () {
+        // hide any open popovers when the anywhere else in the body is clicked
+        if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
+            $(this).popover('hide');
+        }
+    });
+});
+
+
+function searchType(type){
+    window.param['searchType'] = type;
+    if(type == 'fullText'){
+        $("#search_concept").html('Contains');
+    }
+    if(type == 'exact'){
+        $("#search_concept").html('Exact Search');
+    }
+}
+
+
+$('#searchBidRA').click(function () {
+    window.currentPage = 1;
+    window.param['searchBid'] = "";
+    var searchparam = document.getElementById('searchBid').value;
+    if (searchparam) {
+        if(searchparam.length < 3){
+            $('#searchError').html('Please enter atleast 3 characters');
+            return;
+        }
+        var invalidRegex = new RegExp(/[~`!#$%\^*@+=\\[\]\\;{}|\\":<>\?]/);
+        if(invalidRegex.test(searchparam)){
+            $('#searchError').html('Invalid search keyword');
+            return;
+        }
+        //window.searchBid = searchparam;
+        window.param['searchBid'] = searchparam;
+    }
+    $('#searchError').html('');
+    loadBids();
+});
+
+var input = document.getElementById("searchBid");
+input.addEventListener("keypress", function(event) { 
+    if (event.key === "Enter") {
+        event.preventDefault();
+        document.getElementById("searchBidRA").click();
+    }
+});
+
+$('#searchBid').on('input', function(e) {
+    if('' == this.value) {
+        window.param['searchBid'] = "";
+        $('#searchError').html('');
+        window.currentPage = 1;
+        loadBids();
+    }
+});
+
+function bidStatusTypeFilter(type) {
+    window.currentPage = 1;
+    document.getElementById('ongoing_bids').checked = false;
+    document.getElementById('bidrastatus').checked = false;
+    window.filter['bidStatusType'] = type;
+    document.getElementById(window.filter['bidStatusType']).checked = true;
+    $("input.by_status").removeAttr("disabled");
+    if(type=='ongoing_bids'){
+        window.filter['byStatus'] = "";
+        $('input.by_status').each(function() {
+            this.checked = false;
+        });
+        $("input.by_status").attr("disabled", true);
+        window.filter['sort']="Bid-End-Date-Oldest";
+        $(".bidrastatus").hide();
+    }
+    if(type == 'bidrastatus'){
+        window.filter['sort']="Bid-End-Date-Latest";
+        $(".bidrastatus").show();
+    }
+    loadBids();
+}
+
+function typeFilterHighBid(type){ 
+    window.currentPage = 1;
+    if(window.filter['highBidValue'] == ""){
+        window.filter['highBidValue'] = type;
+        loadBids(); 
+    }else{ 
+        window.filter['highBidValue'] = "";
+        loadBids();
+    }
+}
+
+function typeFilter(type) {
+    window.currentPage = 1;
+    document.getElementById('all').checked = false;
+    document.getElementById('product').checked = false;
+    document.getElementById('service').checked = false;
+    document.getElementById('bidToRA').checked = false;
+    document.getElementById('custom').checked = false;
+    document.getElementById('boq').checked = false;
+    document.getElementById('rcbid').checked = false;
+    document.getElementById('gt').checked = false;
+    document.getElementById('lt').checked = false;
+    document.getElementById('st').checked = false;
+    
+    window.filter['byType'] = type;
+    document.getElementById(window.filter['byType']).checked = true;
+    loadBids();
+}
+
+function bidStatusFilter(status) {
+    window.currentPage = 1;    
+    document.getElementById('tech_evaluated').checked = false;
+    document.getElementById('fin_evaluated').checked = false;
+    document.getElementById('bid_awarded').checked = false;
+    window.filter['byStatus'] = status;
+    document.getElementById(window.filter['byStatus']).checked = true;
+    loadBids();
+}
+
+function clearAll(){
+    $('#searchBid').val('');
+    $('input.by_status_type').each(function() {
+        this.checked = false;
+    });
+    $('input.by_type').each(function() {
+        this.checked = false;
+    });
+    $('input.by_status').each(function() {
+        this.checked = false;
+    });
+    $('#fromEndDate, #toEndDate').val('');
+    defaultLoad();
+}
+
+$(function () {
+    $(".datepicker").datepicker({
+        changeMonth: true,
+        changeYear: true,
+        dateFormat: 'yy-mm-dd',
+        minDate: -365,
+        maxDate: +365
+    });
+});
+
+function endDateFilter() {
+    window.currentPage = 1;
+    $('#fromEndDateError').html('');
+    $('#toEndDateError').html('');
+    var from = document.getElementById('fromEndDate').value;
+    var to = document.getElementById('toEndDate').value;
+    if (!from && to) {
+        $('#fromEndDateError').html('Please Select');
+        return;
+    }
+    if (!to && from) {
+        $('#toEndDateError').html('Please Select');
+        return;
+        if (!from) {
+        $('#fromEndDateError').html('Please Select');
+        return;
+    }
+    }
+    if(to && to < from){
+        $('#toEndDateError').html('Select a date greater than from date');
+        return;
+    }
+    window.filter['byEndDate']['from'] = from;
+    window.filter['byEndDate']['to'] = to;
+    loadBids();
+}
+
+function sort(sortby){
+    window.filter['sort']=sortby;
+    loadBids();
+}
+
+// important function - load bids    
+function loadBids(page = null) {
+    $('#bidCard').html('<div style="text-align:center;margin-top:100px;"><img src="resources/images/gemloader.gif"  /></div>');
+    var bidStatus = '["Not Evaluated","Technical Evaluation","Financial Evaluation","Bid Award"]';
+    var bidStatusJson = JSON.parse(bidStatus);
+    var postdata = {};
+    if (page) {
+        postdata['page'] = page;
+    }
+    postdata['param'] = window.param;
+    postdata['filter'] = window.filter;
+    $.ajax({
+        type: 'POST',
+        url: 'https://bidplus.gem.gov.in/all-bids-data',
+        dataType: 'json',
+        data: {'payload': JSON.stringify(postdata), 'csrf_bd_gem_nk': '6b37257ec5fcc2064644fe944f2623a8'},
+        success: function (data) {
+            
+            if (data.code == 200) {
+                var htmlDta = "";
+                var total_numbers = data.response.response.numFound;
+                var start_number = data.response.response.start + 1;
+                var end_number = (total_numbers > 10 && (start_number + 10) < total_numbers) ? data.response.response.start + 10 : total_numbers;
+                var display_records_title = "Showing " + start_number + " - " + end_number + " records of " + total_numbers + " records";
+                htmlDta += '<div class="row row-flex"><div class="col-md-6 totalRecord"><span class="pos-bottom">'+display_records_title+'</span></div><div class="col-md-6"><div class="dropdown sort">Sort by:&nbsp;<button class="btn dropdown-toggle sort_button" type="button" id="currentSort" data-toggle="dropdown"></button><ul class="dropdown-menu"><li><a id="Bid-Start-Date-Latest" onclick="sort(`Bid-Start-Date-Latest`)">Bid Start Date: Latest First</a></li><li><a id="Bid-Start-Date-Oldest" onclick="sort(`Bid-Start-Date-Oldest`)">Bid Start Date: Oldest First</a></li><li><a id="Bid-End-Date-Latest" onclick="sort(`Bid-End-Date-Latest`)">Bid End Date: Latest First</a></li><li><a id="Bid-End-Date-Oldest" onclick="sort(`Bid-End-Date-Oldest`)">Bid End Date: Oldest First</a></li></ul></div></div></div>';
+                var response = data.response.response;
+                for (let x in response.docs) {
+                    var bidData = response.docs[x];
+
+                    var b_id = bidData.b_id;
+                    var bid_number = bidData.b_bid_number;
+                    var rc = '';
+                    var type_lbl = 'BID';
+                    var doc_lbl = 'showbidDocument';
+                    if(bidData.b_bid_type==5){
+                        var type_lbl = 'RA';
+                        var doc_lbl = 'showdirectradocumentPdf';
+                    }
+                    else if(bidData.b_bid_type==2){
+                        var type_lbl = 'RA';
+                        var doc_lbl = 'showradocumentPdf';
+                        if(bidData.b_eval_type>0){
+                            var doc_lbl = 'list-ra-schedules';
+                        }
+                    }
+                    var bidDocURL = "/" + doc_lbl + "/" + b_id;
+                    var start_date_js = new Date(bidData.final_start_date_sort);
+                    var start_date = String(start_date_js.getUTCDate()).padStart(2, '0')+"-"+String(start_date_js.getUTCMonth()+1).padStart(2, '0')+"-"+start_date_js.getUTCFullYear();
+
+                    start_date = start_date+" "+start_date_js.toLocaleTimeString('en',{ timeStyle: 'short', hour12: true, timeZone: 'UTC' });
+                    
+                    var end_date_js = new Date(bidData.final_end_date_sort);
+                    var end_date = String(end_date_js.getUTCDate()).padStart(2, '0')+"-"+String(end_date_js.getUTCMonth()+1).padStart(2, '0')+"-"+end_date_js.getUTCFullYear();
+
+                    end_date = end_date+" "+end_date_js.toLocaleTimeString('en',{ timeStyle: 'short', hour12: true, timeZone: 'UTC' });
+
+                    bidData.b_buyer_status = (bidData.b_buyer_status==null) ? 0 : bidData.b_buyer_status;
+                    /*if (bidData.ba_official_details_minName) {
+                        var is_defence_buyer = (bidData.ba_official_details_minName == "MINISTRY_OF_DEFENCE") ? 1 : 0;
+                    }*/
+
+                    var deptAddr = "";
+                    if (bidData.ba_official_details_minName) {
+                        deptAddr += bidData.ba_official_details_minName + '<br/>';
+                    }
+                    deptAddr += bidData.ba_official_details_deptName;
+                    
+                    htmlDta += '<div class="card">';
+                    htmlDta += '<div class="block_header">';
+                    if(bidData.b_bid_type==2 && bidData.b_bid_number_parent){
+                        htmlDta += '<p class="bid_no pull-left"><span class="bid_title">Bid No.:&nbsp;</span> <a class="bid_no_hover"  href="showbidDocument/' + bidData.b_id_parent + '" target="_blank"> ' + bidData.b_bid_number_parent + '</a></p>';
+                        htmlDta += '<p style="float:left; display:iniline-block; margin:5px 12px;"><i class="fa fa-arrow-right fa-1x"></i></p>';
+                    }
+                    if(bidData.is_rc_bid == 1){ rc = ' ( Rate Contract )'; };
+                    if(bidData.ba_is_global_tendering == 1){ rc = ' ( Global Tender )'; };
+                    htmlDta += '<p class="bid_no pull-left"><span class="bid_title">' + type_lbl + ' NO'+ rc +':&nbsp;</span><a class="bid_no_hover"  href="' + bidDocURL + '" target="_blank">' + bid_number + '</a></p>';
+                    if(window.filter['bidStatusType']=='bidrastatus'){
+                        let awardStatus = '';
+                        if( bidData.parent_bid_schedule && bidData.b_eval_type >0 && bidData.bid_schedule){
+                           let schedules = {};
+
+                            // Parent schedules
+                            $.each(bidData.parent_bid_schedule || [], function(i, item) {
+                                schedules[item.bs_title] = parseInt(item.bs_status) === 2;
+                            });
+
+                            // Bid schedules
+                            $.each(bidData.bid_schedule || [], function(i, item) {
+                                if (!schedules.hasOwnProperty(item.bs_title)) {
+                                    schedules[item.bs_title] = false;
+                                }
+
+                                if (parseInt(item.bs_status) === 2) {
+                                    schedules[item.bs_title] = true;
+                                }
+                            });
+
+                            let totalSchedules = Object.keys(schedules).length;
+                            let awardedSchedules = Object.values(schedules).filter(v => v).length;
+
+                            
+
+                            if (awardedSchedules === totalSchedules && totalSchedules > 0) {
+                                awardStatus = 'Fully Awarded';
+                            } else if (awardedSchedules > 0) {
+                                awardStatus = 'Partially Awarded';
+                            } else {
+                               awardStatus =bidStatusJson[bidData.b_buyer_status];
+                            }
+
+
+                        }else{
+                            awardStatus =bidStatusJson[bidData.b_buyer_status];
+                        }
+                        htmlDta += '<p class="pull-right"><b>Status: </b><span class="text-success">' + awardStatus + '</span></p>';
+                    }else{
+                        htmlDta += '<p class="pull-right otherDetails" id="other-details-'+b_id+'" data-bid="'+b_id+'"  onclick="getOtherDetails('+b_id+')"><a><i class="fa fa-arrow-circle-left"></i>&nbsp;&nbsp;View Corrigendum/Representation</a></p>';
+                    }
+                    htmlDta += '</div><div class="clearfix"></div>';
+                    htmlDta += '<div class="card-body"><div class="row"><div class="col-md-4"><div class="row"><strong>Items:</strong>&nbsp;';
+                    if (bidData.b_category_name[0].length > 30) {
+                        var boq_title = (bidData.bbt_title) ? bidData.bbt_title : '';
+                        htmlDta += '<a data-toggle="popover" title="' + boq_title + '" data-trigger="hover" data-content="' + bidData.b_category_name[0] + '">' + bidData.b_category_name[0].substr(0, 30) + '...</a>'
+                    } else {
+                        htmlDta += (bidData.bbt_title) ? bidData.b_category_name[0] + ' (' + bidData.bbt_title + ')' : bidData.b_category_name[0];
+                    }
+                    htmlDta += '</div><div class ="row"><strong>Quantity:</strong>&nbsp;' + bidData.b_total_quantity + '</div></div>';
+                    htmlDta += '<div class="col-md-5"><div class ="row"><strong>Department Name And Address:</strong>&nbsp;</div><div class = "row">' + deptAddr + '</div></div>';
+                    htmlDta += '<div class = "col-md-3"><div class ="row"><strong>Start Date:</strong>&nbsp;<span class="start_date">' + start_date + '</span></div><div class ="row"><strong>End Date:</strong>&nbsp;&nbsp;&nbsp;<span class="end_date">' + end_date + '</span></div></div>';
+                    htmlDta += '<div class="clearfix"></div>';
+                    if(window.filter['bidStatusType']=='ongoing_bids'){
+                        if(bidData.b_bid_type == 2 && bidData.b_eval_type != 0){
+                            htmlDta += '<hr />';
+                            htmlDta += '<div class="col-md-4 pull-right"><p style="float: right;">';
+                            htmlDta += '<a target="_blank" href="/list-ra-schedules/'+b_id +'"><input type="button" class="btn btn-primary" value="View RA Schedules" /></a>';
+                            htmlDta += '</p></div>';
+                        }
+                    }
+                    if(window.filter['bidStatusType']=='bidrastatus'){
+                        /*htmlDta += '<div class="col-md-8">';
+                        htmlDta += '<ul class="progress-indicator">';
+                        var tech_class = '';
+                        var fin_class = '';
+                        var award_class = '';
+                        if(bidData.b_buyer_status==1){tech_class = 'active';}else if(bidData.b_buyer_status > 1){tech_class = 'completed';}
+                        if(bidData.b_buyer_status==2){fin_class = 'active';}else if(bidData.b_buyer_status > 2){fin_class = 'completed';}
+                        if(bidData.b_buyer_status>=3){award_class = 'completed';}
+                        htmlDta += '<li class="'+ tech_class +'"><span class="bubble"></span>Technical Evaluation</li>'
+                        htmlDta += '<li class="'+ fin_class +'"><span class="bubble"></span>Financial Evaluation</li>'
+                        htmlDta += '<li class="'+ award_class +'"><span class="bubble"></span>'+ type_lbl +' Award</li>'
+                        htmlDta += '</ul></div>';*/
+                        if(bidData.ba_is_single_packet == 1){
+                            var page_link= 'getSinglePacketResultView';
+                        }else{
+                            var page_link= 'getBidResultView';
+                        } 
+                        if(bidData.b_bid_type != 2 && bidData.b_buyer_status > 0){
+                            htmlDta += '<hr />';
+                            htmlDta += '<div class="col-md-4 pull-right"><p style="float: right;">';
+                            htmlDta += (bidData.b_eval_type > 0) ? '<a target="_blank" href="/bidding/bid/getBidResultViewSchedule/'+ b_id +'"><input type="button" class="btn btn-primary" value="View '+ type_lbl +' Results" ></a>' : '<a target="_blank" href="/bidding/bid/'+page_link+'/'+ b_id +'"><input type="button" class="btn btn-primary" value="View '+ type_lbl +' Results" ></a>';
+                            htmlDta += '</p></div>';
+                        }
+                        else if(bidData.b_bid_type == 2){
+                            htmlDta += '<hr />';
+                            htmlDta += '<div class="col-md-4 pull-right"><p style="float: right;">';
+                            if(bidData.b_eval_type == 0){
+                                htmlDta += '<a target="_blank" href="/bidding/bid/'+page_link+'/' + bidData.b_id_parent +'">  <input type="button" class="btn btn-primary" value="View Bid Results" >';
+                                htmlDta += '<a target="_blank" href="/bidding/bid/'+page_link+'/'+ b_id +'">  <input type="button" class="btn btn-primary" value="View RA Results" ></a>';
+                            
+                            }
+                            else{
+                                htmlDta += '<a target="_blank" href="/bidding/bid/getBidResultViewSchedule/'+ bidData.b_id_parent +'">  <input type="button" class="btn btn-primary" value="View Bid Results" >';
+                                htmlDta += '<a target="_blank" href="/view-ra-schedules/'+ b_id +'">  <input type="button" class="btn btn-primary" value="View RA Schedules" ></a>';
+                            }
+                            htmlDta += '</p></div>';
+                        }
+                    }
+                    htmlDta += '</div></div>';
+                    htmlDta += '</div>';
+                }
+                htmlDta += '<div class="clearfix"></div><div id="light-pagination" class="pagination2"></div>';
+                $("#bidCard").html(htmlDta);
+                $(".search").show();
+                $(".sidefilter").show();
+                var sortDisplayName = document.getElementById(window.filter['sort']).innerHTML;
+                $("#currentSort").html(sortDisplayName+'&nbsp;&nbsp;<span class="caret"></span>');
+                //document.getElementById(window.filter['sort']).style.cssText ="color:#0F5E8B;font-weight:bold";
+                document.getElementById(window.filter['bidStatusType']).checked = true;
+                document.getElementById(window.filter['byType']).checked = true;
+                totalPage = Math.ceil(response.numFound / 10);
+                $('#light-pagination').pagination({
+                    pages: totalPage,
+                    cssStyle: 'light-theme',
+                    currentPage: window.currentPage,
+                    onPageClick: function (pageNumber) {
+                        window.currentPage = pageNumber;
+                        loadBids(pageNumber)
+                    }
+                });
+            }
+        },
+        error: function (data) {
+            if (data.responseJSON.code == 404) {
+                $(".sidefilter").show();
+                $('.search').show();
+                document.getElementById(window.filter['bidStatusType']).checked = true;
+                Error500 = '<div class="alert alert-danger">' + data.responseJSON.message + '</div>'
+                $("#bidCard").html(Error500);
+            } else {
+                $('.sidefilter').hide();
+                $('.search').show();
+                document.getElementById("bidCard").className = "col-md-12 bids";
+                Error500 = '<div class="alert alert-danger">' + data.responseJSON.message + '</div>'
+                $("#bidCard").html(Error500);
+            }
+        }
+    });
+
+}
+
+function getOtherDetails(b_id){ 
+    $('#other-details-'+b_id).html('<img style="height: 6px;" src="resources/images/ajax-loader.gif"/>');
+    var post_array = {'csrf_bd_gem_nk': '6b37257ec5fcc2064644fe944f2623a8'};
+        $.ajax({
+            url: "https://bidplus.gem.gov.in/public-bid-other-details/" + b_id ,
+            async: false,
+            type: "POST",
+            data: post_array,
+            dataType: "json",
+            success: function (data) {
+                if (data.code == 200) { 
+                    var details = data.response;
+                    var empty = true;
+                    var htmlDta = '';
+                    htmlDta += '<div class= "pull-right">';
+
+                    if(details.representation){
+                        empty = false;
+                        htmlDta += '<span style="margin-right:15px;" onclick="view_representation_modal('+b_id+')" ><a>View Representation</a></span>';
+                    }
+
+                    if(details.corrigendum){
+                        empty = false;
+                        htmlDta += '<span  onclick="view_corrigendum_modal('+b_id+')" data-bid="'+b_id+'" ><a>View Corrigendum</a></span>';
+                    }
+
+                    if(empty){
+                        htmlDta += 'No details available';
+                    }
+
+                    htmlDta += '</div>';
+                    
+                    $('#other-details-'+b_id).html(htmlDta);
+                }
+            }
+        });
+}
+
+function view_corrigendum_modal(dataBid){
+        $.ajax({
+            url: "https://bidplus.gem.gov.in/bidding/bid/viewCorrigendum/" + dataBid,
+            type: "POST",
+            data: {'csrf_bd_gem_nk': '6b37257ec5fcc2064644fe944f2623a8'},
+            dataType: "html",
+            success: function (data) {
+                if(data==0){
+                    bootbox.alert('No corrigendum found for this bid');
+                }else{
+                    $('#myModal5').modal('show');
+                    $('#atcBody').html(data);
+                }
+                                        
+            }
+        });
+}
+
+function view_representation_modal(b_id){
+    var repUrl = "https://bidplus.gem.gov.in/publish-representations/"+b_id;
+    var title = "Publish Representations";
+    $('#representation_modal_ajax').modal('show', {backdrop: 'true'});
+    $('#representation_modal_ajax .modal-title').html(title);
+        
+    // SHOW AJAX RESPONSE ON REQUEST SUCCESS
+    $.ajax({
+        url: repUrl,
+        success: function(response)
+        {
+            $('#representation_modal_ajax .modal-body').html(response);
+        }
+    });
+}
+</script><link href="/resources/css/gigw-style.css" rel="stylesheet" type="text/css" media="all" />
+<style type="text/css">
+    #loaderPopUp,#popUp{left:50%;margin-top:-50px;border:5px solid #add8e6;padding:10px;background:#fff;color:#000;position:fixed}#loaderPopUp{width:18%;top:50%;margin-left:-115px;z-index:9999}#popUp{width:40%;top:20%;margin-left:-250px;z-index:99999}#loaderPopUp p{margin-top:10%;font-size:20px}.backgroundLoder{position:fixed;left:0;top:0;width:100%;height:100%;z-index:9999;background:#000;opacity:.5}
+
+
+    #notisPopUp{left:50%;border:5px solid #add8e6;padding:10px;background:#fff;color:#000;position:fixed}
+    #notisPopUp{width:40%;top:10%;margin-left:-250px;z-index:99999}
+    #notisPopUp a{ color:#000;}
+    #notisPopUp a:hover{color:#007fff}
+    .fsco img {
+        width: 1.7em;
+        margin-bottom: 0.3em;
+        margin-left: 0.3em;
+    }
+    .incident-gem {
+        margin-top: 23px !important;
+    }
+    .stqc-gem{
+        padding: 1px 0px 5px 0px;
+    border-radius: 4px;
+    width: 80%;
+    float: right;
+    }
+</style>
+
+<div class="clearfix"></div>
+<!--FOOTER-->
+
+<section id="footer" class="sec blbg sce">
+    <!--<div class="footer-top">
+        <div class="container">
+            <div class="lowerFooterLink" id="footer-link">
+
+                <ul>
+                    <li>
+                        <a href="https://gem.gov.in/training">Training</a>
+                    </li>
+                    <li>
+                        <a href="https://gem.gov.in/forum">Forums </a>
+                    </li>
+                    <li>
+                        <a href="https://gem.gov.in/gallery">Gallery</a>
+                    </li>
+
+                    <li>
+                        <a href="https://gem.gov.in/support">Resources </a>
+                    </li>
+                    <li >
+                        <a href="https://gem.gov.in/aboutus">About Us </a>
+                        <span style="position: relative; left: 0.5em;color:#000">|</span>
+
+                    </li>
+                    <li >
+                        <a href="https://gem.gov.in/mou">MOUs</a>
+
+                    </li>
+                    <li>
+                        <a href="https://gem.gov.in/statistics">Statistics</a>
+                    </li>
+                    <li>
+                        <a href="https://gem.gov.in/contactUs">Contact Us</a>
+                    </li>
+                    <li>
+                        <a href="https://gem.gov.in/landing/index/careers">Careers</a>
+                    </li>
+                    <li>
+                        <a href="https://gem.gov.in/RTI" title="Right to Information">RTI</a>
+                    </li>
+                    <li>
+                        <a href="https://gem.gov.in/testimonial" title="Right to Information">Testimonials</a>
+                    </li>
+                </ul>
+
+                <div class="clearfix"></div>
+
+            </div>
+
+        </div>
+        <div class="clearfix"></div>
+    </div>-->
+    <div class="clearfix"></div>            
+    <div class="">
+       <div class="cont" style="padding-bottom: 13em;">
+      <div class="col-md-2 col-xs-6 col-sm-6">
+         <div class="list-inline secb gem-fot">
+            <h6>WEB INFO</h6>            
+            <p>
+               <a class="internalLink" target="_blank" href="https://gem.gov.in/termsCondition" title="Terms of Use">Terms of Use</a>
+            </p>
+            <p>
+               <a href="https://gem.gov.in/websitePolicies" title="Website Policies">Website Policies </a>
+            </p>
+            <p>
+               <a href="https://gem.gov.in/help" title="Document Help">Document Help</a>
+            </p>
+            <p><a href="https://gem.gov.in/sitemap" title="Site Map">Site Map</a></p>
+            <p>
+               <a href="https://gem.gov.in/web-information-manager" title="Web Information Manager">Web Information Manager</a>
+            </p>
+         </div>
+      </div>
+      <div class="col-md-2 col-xs-6 col-sm-6">
+         <div class="list-inline secb gem-fot">
+            <h6>ABOUT <span style="text-transform: none;"> GeM</span></h6>
+            <p>
+               <a href="https://gem.gov.in/aboutus" title="Introduction to GeM">Introduction to GeM</a>
+            </p>
+             <p>
+               <a href="https://gem.gov.in/statistics" title="Statistics">Statistics</a>
+            </p>
+            <p>
+               <a href="https://gem.gov.in/RTI" title="Right to Information">Right to Information</a>
+            </p>
+             <p>
+               <a href="https://sso.gem.gov.in/ARXSSO/oauth/login" title="Analytics"> Analytics</a>
+            </p>
+            <p>
+               <a href="https://gem.gov.in/new-categories" title="New on GeM"> New on GeM</a>
+            </p>
+             <h6 class="incident-gem"><a href="https://gem.gov.in/brand-gem" title="BRAND GeM" style="text-transform: none ;">BRAND GeM</a></h6>
+            
+         </div>
+      </div>
+      <div class="col-md-2 col-xs-6 col-sm-6">
+         <div class=" list-inline secb gem-fot">
+            <h6>NEWS &amp; EVENTS</h6>
+            <p><a href="https://gem.gov.in/media" title="Newsroom">Newsroom</a></p>
+            <p><a href="https://gem.gov.in/gallery" title="Gallery">Gallery</a></p>
+            <p><a href="https://gem.gov.in/landing/index/allnews" title="Notifications">Notifications</a></p>
+            <p><a href="https://gem.gov.in/ccm_data" title="Consultative Committee Meeting">CCM Schedule </a></p>
+            <p><a href="https://gem.gov.in/forum" title="Forums">Forums </a></p>
+             <h6 class="incident-gem"><a href="https://gem.gov.in/testimonial_buyers" title="Testimonials">Testimonials</a></h6>
+         </div>
+      </div>
+      <div class="col-md-2 col-xs-6 col-sm-6">
+         <div class="list-inline secb gem-fot">
+            <h6>Resources</h6>
+	    <p>
+               <a href="https://assets-bg.gem.gov.in/resources/pdf/GeM_handbook.pdf" title="GeM Handbook">GeM Handbook</a>
+            </p>
+            <p>
+               <a href="https://gem.gov.in/support/government_oms_circulars" title="Office Memorandum/Circulars">OM’s/Circulars</a>
+            </p>
+            <p>
+               <a href="https://gem.gov.in/support/terms_conditions" title="Terms and Conditions ">Terms and Conditions </a>
+            </p>
+             <p>
+               <a href="https://gem.gov.in/support/buyers" title="Policies/Manuals">Policies/Manuals</a>
+            </p>
+            
+            <p>
+               <a href="https://gem.gov.in/support/miscellaneous" title="Miscellaneous">Miscellaneous</a>
+            </p>
+           <h6 class="incident-gem" style="text-transform: none;"><a href="https://gem.gov.in/mou" title="Memorandum of Understanding">MoUs</a></h6>
+           
+                     </div>
+      </div>
+      <div class="col-md-2 col-xs-6 col-sm-6">
+         <div class="list-inline secb gem-fot">
+            <h6>Training</h6>            
+            <p><a class="internalLink" href="https://lms.gem.gov.in/" target="_blank" title="Learning Management System">LMS</a></p>
+            <p><a href="https://gem.gov.in/training" title="Training Calendar">Training Calendar</a></p>
+            <p><a href="https://gem.gov.in/training/training_module" title="Training Module">Training Module</a></p>
+            <p><a href="https://gem.gov.in/training/facilitators" title="Facilitators">Facilitators</a></p>
+            <p><a download="GeM New Logo" href="https://gem.gov.in/resources/images/download-gem-logo.jpg" title="Download GeM Logo">Download GeM Logo</a></p>
+           
+           
+         </div>
+      </div>
+      <div class="col-md-2 col-xs-6 col-sm-6">
+         <div class="list-inline secb gem-fot">
+            <h6>Need Help?</h6>
+            <p><a href="https://gem.gov.in/userFaqs" title="Frequently Asked Questions (FAQs)">FAQs</a></p>
+            <p><a href="https://gem.gov.in/training/videos/buyers" title="Video Guides">Video Guides</a></p>
+            <p><a href="https://gem.gov.in/gemtickets/create" title="Raise-a Ticket">Raise-a Ticket</a></p>
+            <p><a href="https://gem.gov.in/contactUs" title="Contact Us">Contact Us</a></p>
+            <p><a href="https://gem.gov.in/landing/index/careers" title="Careers">Careers</a></p>
+         </div>
+      </div>
+   </div>
+ <div class="clearfix"></div>
+</div>
+<div class="footer-logo-new hidden-xs sce">
+    <div class="col-sm-12 vis ">
+         <ul class="text-center list-inline flogo ">
+             <li>
+               <a class="externalLink" href="http://commerce.gov.in/" title="External link that opens in a new window" rel="noopener noreferrer"><img src="https://gem.gov.in/resources/images/dept-commerce.png" alt="Ministry of Commerce and Industry"></a>
+            </li>
+            <li>
+               <a class="externalLink" href="https://msme.gov.in/" title="External link that opens in a new window" rel="noopener noreferrer"><img src="https://gem.gov.in/resources/images/msme-min.png" alt="Ministry of Micro, Small  Medium Enterprises"></a>
+            </li>
+            <li>
+               <a class="externalLink" href="https://www.gst.gov.in/" title="External link that opens in a new window" rel="noopener noreferrer"><img src="https://gem.gov.in/resources/images/gst-min1-min.png" alt="Goods and Services Tax"></a>
+            </li>
+            <li>
+               <a class="externalLink" href="http://www.makeinindia.com/home" title="External link that opens in a new window" rel="noopener noreferrer"><img src="https://gem.gov.in/resources/images/makeinindia.png" alt="Make In India"></a>
+            </li>
+             <li>
+                 <a class="externalLink" href="http://digitalindia.gov.in" title="External link that opens in a new window" rel="noopener noreferrer"><img src="https://gem.gov.in/resources/images/digital-india.png" alt="Digital India"></a>
+            </li>
+           
+            <li>
+               <a class="externalLink" href="https://www.comodo.com" title="External link that opens in a new window" rel="noopener noreferrer"><img src="https://gem.gov.in/resources/images/comodo_secure_seal.png " alt="comodo secure seal"></a>
+            </li>
+             <li>
+               <a class="internalLink" href="https://gem.gov.in/cppp" title="CPPP Tenders" target="_blank" rel="noopener noreferrer"><img src="https://bidplus.gem.gov.in/resources/images/cppp-tendars-v1.png" alt="central public procurement portal(CPPP)"></a>
+            </li>
+            <li>
+               <a class="externalLink" href="https://www.india.gov.in/" title="External link that opens in a new window" rel="noopener noreferrer"><img src="https://gem.gov.in/resources/images/gem-india.jpg" alt="india.gov.in"></a>
+            </li>
+            <li>
+               <a class="internalLink" href="https://assets-bg.gem.gov.in/resources/pdf/Application_Security_Test_Report_GeM_21122018.pdf" title="STQC Certification for Quality Evaluation of GeM" target="_blank"><img src="https://gem.gov.in/resources/images/stqc-1-min.png" alt="STQC"></a>
+               <a class="internalLink" href="https://assets-bg.gem.gov.in/resources/pdf/stqc.pdf" title="STQC" target="_blank"><img src="https://gem.gov.in/resources/images/stqc-2-min.png" alt="Standardisation Testing and Quality Certification (STQC)"></a>	  
+            </li>
+         </ul>
+       
+      </div>
+	  <div class="clearfix"></div>
+   </div>
+    <div class="footer-logo-bot sce">
+   <div class="cont ">
+   
+      <div class="col-sm-2 vis col-xs-6 ">
+       <p class="cpy ">© 2026 GeM All rights reserved </p>
+			
+        </div>
+         <div class="col-sm-6 vis col-xs-6 vis text-center">
+             <div class="stqc-gem">
+         <!--<p style="margin: 0;">Last Updated: <strong>04-Jan-2019</strong></p>-->
+          <p class="cpy ">Site operated and maintained by Managed Service Provider</p>
+         </div>
+      </div>
+        <div class="col-sm-4 col-xs-12 text-center ">
+         <ul class=" list-inline fsco ">
+            <li>
+               <a href="https://twitter.com/GeM_India" target="_blank" rel="noopener noreferrer" class="externalLink"><img src="https://gem.gov.in/resources/images/twitters.svg " class="svg" alt="twitter"></a>
+               <a href="https://www.facebook.com/govGeM/" target="_blank" rel="noopener noreferrer" class="externalLink"><img src="https://gem.gov.in/resources/images/facebook-icons.svg" alt="fb" class="svg"></a>
+               <a href="https://www.youtube.com/channel/UC1LaBWVVZv3k23BZApfDlsQ" target="_blank" rel="noopener noreferrer" class="externalLink"><img src="https://gem.gov.in/resources/images/youtube_new-gem.svg" alt="youtube" class="svg"></a>
+               <a href="https://www.linkedin.com/company/government--e--marketplace-gem-?trk=biz-companies-cym" target="_blank" rel="noopener noreferrer" class="externalLink"><img src="https://gem.gov.in/resources/images/inc-v1.svg " alt="linkedin" class="svg"></a>
+               <a href="https://www.slideshare.net/GeMProcurementReimag" target="_blank" rel="noopener noreferrer" class="externalLink"><img src="https://gem.gov.in/resources/images/slideshare.svg " alt="slide share" class="svg"></a>
+            </li>
+         </ul>
+      </div>
+    
+     
+   </div>
+    <div class="clearfix"></div>
+   </div>
+</section>
+
+
+<!--FOOTER ENDS--> 
+<input type="hidden" id="cname" value="csrf_bd_gem_nk" >
+<input type="hidden" id="chash" value="6b37257ec5fcc2064644fe944f2623a8" >
+
+<!--GeM Loader -->
+<div class="backgroundLoder" style="display:none"></div>
+<div id="loaderPopUp" style="display:none">
+    <img src="/resources/images/gemloader.gif" style="float:left"><p>Please wait...</p>
+</div>
+<!--// GeM Loader -->
+
+
+
+<!--GeM Loader Script --> 
+<script type="text/javascript">
+
+    window.onscroll = function () {
+        scrollFunction();
+    };
+
+    function scrollFunction() {
+        if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+            $('#myBtn').show();
+        } else {
+            $('#myBtn').hide();
+        }
+    }
+
+// When the user clicks on the button, scroll to the top of the document
+    function topFunction() {
+        document.body.scrollTop = 0; // For Safari
+        document.documentElement.scrollTop = 0; // For Chrome, Firefox, IE and Opera
+    }
+    $.showPopUp = function () {
+        $("#popUp").fadeIn(1000);
+        $(".backgroundLoder").fadeIn(500);
+    };
+    function hidePopUp() {
+        $("#popUp").hide();
+        $(".backgroundLoder").hide();
+    }
+    $.showLoader = function () {
+        $("#loaderPopUp").fadeIn(1000);
+        $(".backgroundLoder").fadeIn(500);
+    };
+
+    $.hideLoader = function () {
+        $("#loaderPopUp").hide();
+        $(".backgroundLoder").hide();
+    };
+
+    function shownotification() {
+        $("#notisPopUp").fadeIn(1000);
+        $(".backgroundLoder").fadeIn(500);
+    }
+
+    function hidenotification() {
+        $("#notisPopUp").hide();
+        $(".backgroundLoder").hide();
+    }
+    $('a#notifyseller').on('click', function () {
+
+        shownotification();
+        return false;
+    });
+
+    $('#sellernotifyclose').on('click', function () {
+        hidenotification();
+        return false;
+    });
+
+</script>
+<!--// GeM Loader -->
+<!--GOOGLE ANALYTICS--> 
+<script>
+    function showLoader(LoaderMsg)
+    {
+
+        $('.LoaderMsg').html(LoaderMsg);
+        $('#myModalLoader').modal('show');
+    }
+
+    function hideLoader()
+    {
+        $('#myModalLoader').modal('hide');
+    }
+
+
+
+
+    var baseUrl = "https://bidplus.gem.gov.in/";
+</script>
+
+<script>
+    function checkLoadData() {
+        var loadbased_required = $('input[name="loadbased_required"]:checked').val();
+
+        if(loadbased_required == undefined || loadbased_required == 'undefined')
+        {
+            $('.loadbased_error').html('This is required');
+            return false;
+        }
+
+        if((loadbased_required != undefined) && (loadbased_required == 1))
+        {
+            $('.red').html('');
+            var loadbased_reason = $(".loadbased_reason").val().trim();
+            if(loadbased_reason == '') {
+                $('.loadbased_reason_error').html('This is required');
+                return false;
+            }
+            if(loadbased_reason.length < 50 || loadbased_reason.length > 5000) {
+                $('.loadbased_reason_error').html('Reason must be between 50 to 5000 characters');
+                return false;
+            }
+
+            var loadbased_doc_required = $('input[name="loadbased_doc_required"]:checked').val();
+
+            if(loadbased_doc_required == undefined || loadbased_doc_required == 'undefined')
+            {
+                $('.loadbased_doc_error').html('This is required');
+                return false;
+            }
+
+            if((loadbased_doc_required != undefined) && (loadbased_doc_required == 1))
+            {
+                var loadbased_file = $("#loadbased_file").val();
+                if(loadbased_file == '' && $("#prev_loadbased_file").val() == '') {
+                    $('.loadbased_file_error').html('This is required');
+                    return false;
+                }
+            }
+
+        } 
+        return true;
+    }
+
+    $(document).on('change', '#loadbased_file', function (e) {
+        const file = document.getElementById($(this).attr('id')); 
+        $('.loadbased_file_error').html('');
+        if(file.files.length > 0) {
+            const fSize = file.files.item(0).size;
+            const fName = file.files.item(0).name;
+            const fExt = fName.split('.')[fName.split('.').length - 1].toLowerCase();
+            
+            if(fSize > 0 && fSize <= 5242880) {
+                if(fExt != 'pdf') {
+                    alert("Please upload document in PDF file only");
+                    $(this).val('')
+                }
+            } else {
+                alert("Maximum supported file size for upload is 5 MB");
+                $(this).val('')
+            }
+        } else {
+            alert("No file selected");
+            $(this).val('')
+        }
+    });
+
+    $(document).ready(function () {
+    $(document).on("click", '#btn_update_loadbased:visible', function (e) {
+        if(checkLoadData()){
+            var loadfile = $("#loadbased_file").val();
+            var load_bid_file = $("#prev_loadbased_file").val();
+            var load_file_required =$('input[name="loadbased_doc_required"]:checked').val();
+            if(load_file_required == 1) {
+                if(loadfile != '') {
+                    load_bid_file = uploadLoadDoc();
+                }
+            } else {
+                load_bid_file = '';
+            }
+            var loadbased_required = $('input[name="loadbased_required"]:checked').val();
+            var loadbased_reason = $(".loadbased_reason").val().trim();
+            var bd_id = $("#bd_id").val();
+            var post_array = {"load_bid_file":load_bid_file,"bd_id":bd_id,"loadbased_required":loadbased_required,"loadbased_reason":loadbased_reason,'csrf_bd_gem_nk': '6b37257ec5fcc2064644fe944f2623a8'};
+            $.ajax({
+                url: "https://bidplus.gem.gov.in/bidding/updateLoadData/",
+                async: false,
+                type: "POST",
+                data: post_array,
+                dataType: "json",
+                success: function (data) {
+                    if(!data.status) {
+                        $('.loadbased_error').html(data.message);
+                    } else {
+                        location.reload();
+                    }
+                },
+                error: function () {
+                    alert('Something went wrong, Please try again!');
+                }
+            });
+        }
+    });
+    });
+
+    function uploadLoadDoc() {
+        var bidID = $('#bidID').val();
+        var fd = new FormData();
+        fd.append("loadbased_file", document.getElementById("loadbased_file").files[0]);
+        fd.append('bid_id', bidID);
+        fd.append('csrf_bd_gem_nk', '6b37257ec5fcc2064644fe944f2623a8');
+        var saveLoadDocUrl = "https://bidplus.gem.gov.in/bidding/buyerbid/saveLoadDoc/";
+        var load_bid_file = '';
+        $.ajax({
+            url: saveLoadDocUrl,
+            async: false,
+            type: "POST",
+            data: fd,
+            dataType: "json",
+            contentType: false,
+            processData: false,
+            success: function (data) {
+                if (data.status)
+                {
+                    load_bid_file = data.data;
+                }
+            }
+        });
+        return load_bid_file;
+    }
+    
+
+    $(document).on("click", '.saveSpecs:visible', function (e) {
+        var datasaveallboq ='';
+        var detailID = $(this).attr('data-biddetail');
+                e.preventDefault();
+        var variantID = $('#currentVariant').val();
+        var bid_type = $('#bid_type').val();
+        var token = $('#token').val();
+        var itemID = $('#currentItem').val();
+        var btype = $('.productMain[data-bdid=' + detailID + ']').data('ptype');//0=>product(goods), 1=> services  
+        var bidID = $('#bidID').val();
+        var ajaxexe = false;
+        var is_boq_item = 0;
+         var isblankss = 0;
+        if (btype == 1)
+        {
+            var count = 0;
+            var error_count = 0;
+            var ttl_cnt = $('#ttl_cnt').val();
+            $("[spec_type='core']").each(function () {
+                if ($(this).val() == null || $(this).val() == '') {
+                    error_count++;
+                }
+            });
+            if (error_count == 0)
+            {
+                ajaxexe = true;
+            } else
+            {
+                alert('Please select all specification parameters.');
+            }
+            var minimum_rate = $('#minimum_rate').val();
+            if(minimum_rate!='' && minimum_rate <= 0)
+            {
+                $('#minimum_rate').focus();
+                alert('Please provide valid minimum rate');
+                return false;
+            }
+        } else
+        {
+            const custom_param_availed = $("input[name='custom_params_required']:checked").val();
+            var is_boq_item = $("#buyer_boq_file:visible").length;
+            if(custom_param_availed === '1') {
+                ajaxexe = validateCustomParamData() ? true : false;
+                if(ajaxexe) {
+                    const is_confirmed = $('#custom_param_undertaking').prop('checked');
+                    if(!is_confirmed) {
+                        alert('Please review and accept the required undertaking');
+                        ajaxexe = false;
+                    }
+                }
+            } else if(is_boq_item === 1) {
+                var file = $("#buyer_boq_file:visible");
+                if((file)[0].files.length === 1) {
+                    const file_size = (file)[0].files.item(0).size;
+                    const file_name = (file)[0].files.item(0).name;
+                    const file_ext = file_name.split('.')[file_name.split('.').length - 1].toLowerCase();
+
+                    if(file_size <= 0 || file_size > 10485760 || $.inArray(file_ext, ['xls', 'xlsx']) == -1) {
+                        file.val('');
+                        alert('Please upload a valid excel file against BOQ document. Max size is 10 MB.');
+                        ajaxexe = false;
+                    } else {
+                        ajaxexe = true;
+                    }
+                } else {
+                    file.val('');
+                    alert('Please upload a valid excel file against BOQ document. Max size is 10 MB.');
+                    ajaxexe = false;
+                }
+            } else {
+                ajaxexe = true;
+            }
+        }
+        if (ajaxexe == true)
+        {   
+            var file_boq = '';
+            if(is_boq_item === 1){
+                var saveUrl = "https://bidplus.gem.gov.in/bidding/bidding/saveBoqSpecs/";
+                var form_data = new FormData();
+                var file_data = $('#buyer_boq_file').prop('files')[0];
+                form_data.append('buyer_boq_file', file_data);
+                form_data.append('bid_type', bid_type);
+                form_data.append('token', token);
+                form_data.append('detailID', detailID);
+                form_data.append('itemID', itemID);
+                form_data.append('btype', btype);
+                form_data.append('variantID', variantID);
+                $.ajax({
+                    url: saveUrl,
+                    async: false,
+                    type: "POST",
+                    data: form_data,
+                    dataType: "text",
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        if (data)
+                        {
+                            if (data == 1)
+                            {
+                                location.reload();
+                            }
+
+                        }
+                    }
+                });
+                
+            }else{
+                var buybackdata = $('input[name="buyback_params_required"]:checked').val();
+                if((buybackdata!=undefined) && (buybackdata == 1))
+                {
+                   var errs =  validateBuyBack();
+                   if(errs > 0)
+                   {
+                        return false;
+                   }
+                }
+
+                var load_bid_file = '';
+                var is_load_enabled = $("#is_load_enabled").val();
+                if(is_load_enabled == 1 && buybackdata != 1) {
+                    if(!checkLoadData()) {
+                        return false;
+                    }
+
+                    var loadfile = $("#loadbased_file").val();
+                    load_bid_file = $("#prev_loadbased_file").val();
+                    var load_file_required =$('input[name="loadbased_doc_required"]:checked').val();
+                    if(load_file_required == 1) {
+                        if(loadfile != '') {
+                            load_bid_file = uploadLoadDoc();
+                        }
+                    } else {
+                        load_bid_file = '';
+                    }
+                }
+                
+                
+                var saveUrl = "https://bidplus.gem.gov.in/bidding/saveSpecs/";
+                if(datasaveallboq==1){
+                    showLoader();
+                    var form_data = new FormData();
+                    form_data.append('bid_type', 0);
+                    form_data.append('bidID', bidID);
+                    form_data.append('token', token);
+                    form_data.append('load_bid_file', load_bid_file);
+                    form_data.append('csrf_bd_gem_nk', '6b37257ec5fcc2064644fe944f2623a8');
+                    form_data.append('save_all_boq', 1);
+                    $.ajax({
+                        url: saveUrl,
+                        async: true,
+                        type: "POST",
+                        data: form_data,
+                        dataType: "text",
+                        contentType: false,
+                        processData: false,
+                        success: function (data) {
+                            hideLoader();
+                            if (data){
+                                if (data == 1){
+                                    location.reload();
+                                }
+                            }
+                        }
+                    });
+                }
+                else{
+                    
+
+                    $.ajax({
+                        url: saveUrl,
+                        async: false,
+                        type: "POST",
+                        data: $('#form_att').serialize() + "&load_bid_file=" + load_bid_file+ "&bid_type=" + btype + "&variantID=" + variantID + "&itemID=" + itemID + "&detailID=" + detailID + "&token=" + token + "&csrf_bd_gem_nk=6b37257ec5fcc2064644fe944f2623a8&minimum_rate="+minimum_rate+"&buyer_boq_file="+file_boq,
+                        dataType: "html",
+                        success: function (data) {
+                            if (data)
+                            {
+                                if (data == 1)
+                                {
+                                    location.reload();
+                                }
+
+                            }
+
+                        }
+                    });
+                }
+            }
+            
+            
+        }
+                  
+
+    });
+    $(document).on("click", '.step1_save:visible', function (e) {
+        e.preventDefault();
+        var bidID = $('#bidID').val();
+        var bid_type = $('#bid_type').val();
+        $.ajax({
+            url: "https://bidplus.gem.gov.in/bidding/step1_save/",
+            async: false,
+            type: "POST",
+            data: "bidID=" + bidID + "&bid_type=" + bid_type + "&csrf_bd_gem_nk=6b37257ec5fcc2064644fe944f2623a8", //$('#form_contract').serialize() + "&
+            dataType: "html",
+            success: function (data) {
+                if (data)
+                {
+                    window.location.href = data;
+                }
+
+            }
+        });
+    });
+    
+    $(document).on("click", '.saveConsignee:visible', function (e) {
+        saveConsgineeDetails(this);
+//        var kk = 1;
+//        var delivery_period = '';
+//        $('input[name="delivery_day[]"]').each(function() {
+//            if(parseInt($(this).val()) > parseInt(delivery_period)){
+//                kk++;
+//                return true;
+//            }
+//        });
+//        if(kk==1){
+//            saveConsgineeDetails(this);
+//        }else{
+//            e.preventDefault();
+//            $('#CAModal').modal('show');
+//            return false;
+//        }
+    });
+    function saveConsgineeDetails(that){
+        bootbox.confirm("Are you sure you want to save these consignees?", function (result) {
+            if (result == true)
+            {
+                $(".bootbox-confirm").find('.btn-primary').attr("disabled",true);
+                //e.preventDefault();
+                if($(that).attr('data-saveallboq')==1){
+                    var bidID = $('#bidID').val();
+                    var form_data = new FormData();
+                    form_data.append('bid_type', 0);
+                    form_data.append('bidID', bidID);
+                    form_data.append('csrf_bd_gem_nk', '6b37257ec5fcc2064644fe944f2623a8');
+                    form_data.append('save_all_boq', 1);
+                    showLoader();
+                    $.ajax({
+                        url: "https://bidplus.gem.gov.in/bidding/saveConsignee/",
+                        async: true,
+                        type: "POST",
+                        data: form_data,
+                        dataType: "json",
+                        contentType: false,
+                        processData: false,
+                        success: function (data) {
+                            $(".bootbox-confirm").find('.btn-primary').attr("disabled",false);
+                            hideLoader();
+                            if (data){
+                                if (data.status == 0 || data.status == 1){
+                                    bootbox.alert(data.msg, function () {
+                                        window.location = window.location;
+                                    });
+                                    return false;
+                                }
+                            }
+                        }
+                    });
+                }
+                else{
+                                    var variantID = $('#currentVariant').val();
+                    var detailID = $(this).attr('data-biddetail');
+                    var itemID = $('#currentItem').val();
+                    var formData = $(document).find('form').serialize();
+                    var detailID = $('#bdID').val();
+                    var btype = $('.productMain[data-bdid=' + detailID + ']').data('ptype');//0=>product(goods), 1=> services    
+                    $.ajax({
+                        url: "https://bidplus.gem.gov.in/bidding/saveConsignee/",
+                        async: false,
+                        type: "POST",
+                        data: formData,
+                        dataType: "json",
+                        success: function (data) {
+                            $(".bootbox-confirm").find('.btn-primary').attr("disabled",false);
+                            if (data)
+                            {
+                                if (data.status == 0)
+                                {
+                                    bootbox.alert(data.msg, function () {
+                                        window.location = window.location;
+                                    });
+                                    return false;
+                                }
+                                if (data.status == 1)
+                                {
+                                    bootbox.alert(data.msg, function () {
+                                        window.location = window.location;
+                                    });
+                                    //location.reload();
+                                }
+
+                            }
+
+                        }
+                    });
+                                 }
+            }
+
+        });
+    }
+ 
+    $(document).ready(function () {
+    
+        $('#switchLang').on('click', function(){
+            var lang_value = $('#lang_value').text();
+            var lang_text = $('#lang_text').text();
+            $.ajax({
+                url: "https://bidplus.gem.gov.in/bidding/bid/setLanguageCookie/",
+                async: false,
+                type: "POST",
+                data: "value=" + lang_value + "&text=" + lang_text + "&csrf_bd_gem_nk=" + '6b37257ec5fcc2064644fe944f2623a8',
+                dataType: "json",
+                success: function (data) {
+                    location.reload();
+                }
+            });
+        });
+        
+        $('#language_modal').on('hidden.bs.modal', function () {
+            var lang =             $('#languageChange').val(lang);
+        });
+        
+        $('#languageChange').on('change', function(){
+            var selectedText = $(this).find("option:selected").text();
+            $('#lang_text').text(selectedText);
+            $('#lang_value').text(this.value);
+            $('#language_modal').modal('toggle');
+        });
+
+        $('.fm').click(function (e) {
+            e.preventDefault();
+            var str = $('body').css('font-size');
+            var res = str.replace("px", "");
+            if (res > 10) {
+                $('body').css('font-size', parseInt(res - 1));
+				$('.fp').css("opacity", " unset");
+            } else {
+                $('.fm').css("opacity", " 0.3");
+            }
+        });
+        $('.fp').click(function (e) {
+            e.preventDefault();
+            var str = $('body').css('font-size');
+            var res = str.replace("px", "");
+            if (res < 25) {
+                $('body').css('font-size', parseInt(res) + 1);
+				$('.fm').css("opacity", " unset");
+            } else {
+                $('.fp').css("opacity", " 0.3");
+            }
+        });
+        $('.fdn').click(function (e) {
+            e.preventDefault();
+            var myCookie = checkMode();
+            if (myCookie == null) {
+                document.cookie = "themeOption=1; domain=.gem.gov.in; path=/;";
+                $('body').addClass('nightmode');
+            } else {
+                if(myCookie == 1) {
+                    document.cookie = "themeOption=0; domain=.gem.gov.in; path=/;";
+                    $('body').removeClass('nightmode');
+                } else {
+                    document.cookie = "themeOption=1; domain=.gem.gov.in; path=/;";
+                    $('body').addClass('nightmode');
+                }
+            }
+//            if($('body').hasClass('nightmode')) {
+//                document.cookie = "nightmode=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.gemorion.org; path=/;";
+//            } else {
+//                document.cookie = "nightmode=1; domain=.gemorion.org; path=/;";
+//            }
+//            $('body').toggleClass('nightmode');
+            
+            function checkMode() {
+                var dc = document.cookie;
+                var prefix = "themeOption=";
+                var begin = dc.indexOf("; " + prefix);
+                if (begin == -1) {
+                    begin = dc.indexOf(prefix);
+                    if (begin != 0) return null;
+                } else {
+                    begin += 2;
+                    var end = document.cookie.indexOf(";", begin);
+                    if (end == -1) { end = dc.length; }
+                }
+                return decodeURI(dc.substring(begin + prefix.length, end));
+            }
+        });
+        $('.fd').click(function (e) {
+            e.preventDefault();
+            $('body').css('font-size', '1.5em');
+             $('.fp').css("opacity", " unset");
+        $('.fm').css("opacity", " unset");
+        });
+
+        $('.products').click(function () {
+            $('.blocks').addClass('productMain');
+            $('.blocks').removeClass('consigneeMain');
+        });
+
+        $('.consignees').click(function () {
+            $('.blocks').removeClass('productMain');
+            $('.blocks').addClass('consigneeMain');
+        });
+        $(document).on("click", '.productMain:visible', function (e) { 
+            //  showLoader('Please wait while system is fetching product specifications');
+            e.preventDefault();
+            var btype = $(this).data('ptype');//0=>product(goods), 1=> services
+            var specMsg = 'Please wait while we are fetching product specifications';
+            if (btype == 1)
+            {
+                specMsg = 'Please wait while we are fetching service specifications';
+            }
+            showLoader(specMsg);
+            $('.partshow').show();
+            $('.color-bid').removeClass('active');
+            $(this).children('.color-bid').addClass('active');
+            var hasSaved = $(this).children('.color-bid').hasClass('specsSaved');
+            var variantID = $(this).attr('data-variant');
+            var category = $(this).attr('data-category');
+            $('#currentVariant').val(variantID);
+            var itemID = $(this).attr('data-item');
+            $('#currentItem').val(itemID);
+            var is_boq_item_new = $(this).attr('data-boq_new');
+            var token;
+            typeof token;
+            token = $('#token').val();
+            if (typeof token == 'undefined')
+            {
+                token = 'unavailable';
+            }
+            var bdid = $(this).attr('data-bdid');
+            $('.tr-'+bdid).addClass('active-rows');
+            var roleid = 0;
+            var btype = $(this).data('ptype');//0=>product(goods), 1=> services
+            $.ajax({
+                url: "https://bidplus.gem.gov.in/bidding/showSpecs/",
+                async: false,
+                type: "POST",
+                data: "csrf_bd_gem_nk=6b37257ec5fcc2064644fe944f2623a8&variantID=" + variantID + "&itemID=" + itemID + "&btype=" + btype + "&token=" + token + "&bdid=" + bdid,
+                dataType: "html",
+                success: function (data) {                    
+                    $('.hiddSpecs').hide();
+                    setTimeout(function () {
+                        hideLoader();
+                    }, 100);
+
+                    if (data != 0)
+                    {
+                        if(roleid == 5)
+                        {
+                            var hasSavedtech = $('.hiddens_'+bdid+' .techSpecs_show').hasClass('techspecactive');
+                            if(hasSavedtech == true)
+                            {
+                                $('.hiddSpecs .techSpecs_show').removeClass('techspecactive');
+                                $('.hiddens_'+bdid+' .techSpecs_show').removeClass('techspecactive');
+                                $('.hiddens_'+bdid+' .techSpecs_show').html('');       
+                                $('.hiddens_'+bdid).hide();
+                            }
+                            else
+                            {
+                                $('.hiddSpecs .techSpecs_show').removeClass('techspecactive');
+                                $('.hiddens_'+bdid+' .techSpecs_show').addClass('techspecactive');
+                                $('.hiddens_'+bdid+' .techSpecs_show').html(data);       
+                                $('.hiddens_'+bdid).show();
+                            }
+                            
+                        }
+                        else
+                        {
+                                                    var hasSaved = $('.fetchspechideshow').hasClass('specsSaved_'+bdid);
+                            $('.specfication_step2 .specfication_show').html('');
+                            $('.specfication_step2').hide();
+                            $('.hidespecfication_'+bdid+' .specfication_show').html(data);  
+                            $('.hidespecfication_'+bdid+' .specfication_show').show();
+                            $('.specs_heading').html('');
+                            $('.specs_heading').html("<h3 class='tabl-tile'>Specification for  " + category + "</h3>");
+                            $('.hidespecfication_'+bdid).show();
+                            $('.fetchspechideshow').show();
+                            $('.fetch_specification_'+bdid).hide();
+                            
+                            
+
+                                                
+                        }
+                        if (hasSaved == false && roleid != 5)
+                        {
+                            $('#Step1End').html('<input data-bidDetail="' + bdid + '" type="button" value="Save" class="saveSpecs btn btn-md btn-primary" style="float:right">');
+                        }
+                        
+
+                    } else
+                    {
+                        if(roleid == 5)
+                        {
+                            var hasSavedtech = $('.hiddens_'+bdid+' .techSpecs_show').hasClass('techspecactive');
+                            if(hasSavedtech == true)
+                            {
+                                $('.hiddens_'+bdid+' .techSpecs_show').removeClass('techspecactive');
+                                $('.hiddens_'+bdid+' .techSpecs_show').html('');       
+                                $('.hiddens_'+bdid).hide();
+                            }
+                            else
+                            {
+                                $('.hiddens_'+bdid+' .techSpecs_show').addClass('techspecactive');
+                                $('.hiddens_'+bdid+' .techSpecs_show').html('There is some issue while fetching technical specifications please try again !');
+                                $('.hiddens_'+bdid).show();
+                            }
+                        }
+                        else
+                        {
+                                                    $('.hidespecfication_'+bdid+' .specfication_show').html('There is some issue while fetching technical specifications please try again !');  
+                            $('.hidespecfication_'+bdid+' .specfication_show').show();
+                            //$('.hidespecfication_'+bdid).show();
+                            //$('.specfication_step2').show();
+                           // $('.specfication_step2 .specfication_show').html('There is some issue while fetching technical specifications please try again !');
+                                                 }
+                    }
+
+                }
+            });
+        });
+
+    });</script>
+<script> 
+$(document).ready(function(){ 
+$('.on-focus').keyup(function (e) { 
+$(this).addClass('open'); 
+}); 
+$(".on-focus li").focusout(function(e){ 
+$(this).removeClass('open'); 
+$(this).trigger('mouseover'); 
+$('.last-style').on('focusout',function(e){ 
+$(this).parent().parent().removeClass('open'); 
+}) 
+//$('.on-focus').removeClass('hover'); 
+}); 
+
+}); 
+</script>
+<!--GOOGLE ANALYTICS--> 
+
+    <script>
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+        ga('create', 'UA-82282508-1', 'auto');
+        ga('send', 'pageview');
+    </script>
+    </body>
+</html>
+<div id="myModalLoader" class="modal">
+    <div class="loader">
+        <img src="/resources/images/gemloader.gif" style="float:left" >
+        <p style="margin-top: 12px;" class="LoaderMsg"> </p> 
+
+    </div>
+</div>
+<script>
+var externalLnk;
+$( document ).ready(function() {
+    $('.externalLink').on('click',function(event){
+        event.preventDefault();
+        var result = confirm('This will open a new tab and lead you to an external website.'); 
+        $('.externalLink[href="'+externalLnk+'"]').attr('target','_blank');
+        var url = externalLnk;
+        if (result == true) { 
+            var url= $(this).attr('href');
+            window.open(url,'_blank');
+        }
+        /*var that = $(this);
+        var p = $('.cd-popup').children().children()[0];
+        $(p).html('This link  opens in a New Tab!');
+        event.preventDefault();
+        $('.cd-popup').addClass('is-visible').show();
+        //close popup
+        $('.cd-popup').on('click', function(event){
+            if( $(event.target).is('.cd-popup-close') || $(event.target).is('.cd-popup') ) {
+                    event.preventDefault();
+                    $(this).removeClass('is-visible');
+            }
+            if($(event.target)[0].innerHTML=='OK'){
+                $(this).removeClass('is-visible');
+                that.attr('target','_blank');
+                var url = that.attr('href');
+                window.open(url,'_blank')
+            } else {
+                $(this).removeClass('is-visible');
+                that.removeAttr('target');
+            }
+        });
+            //close popup when clicking the esc keyboard button
+        $(document).keyup(function(event){
+            if(event.which=='27'){
+                $('.cd-popup').removeClass('is-visible');
+            }
+        });*/
+    });
+});
+</script>
+<!-- for internal Link -->
+<script>
+$( document ).ready(function() {
+    $('.internalLink').on('click',function(event){
+        event.preventDefault();
+        var result = confirm('This link opens in a new tab.'); 
+            $('.internalLink[href="'+internalLink+'"]').removeAttr('target');
+            var internalLink = $(this).attr('href');
+                var url = internalLink;
+            if (result == true) { 
+               var url = internalLink;
+            window.open(url,'_blank')
+            }
+            else{
+                $('.internalLink[href="'+internalLnk+'"]').removeAttr('target');
+            }
+    });
+});
+</script>
+<!-- for Language Change-->
+<script>
+function redirect(val,event){
+    var p = $('.cd-popup').children().children()[0];
+    $(p).html('This will lead you to GeM  '+ val.toUpperCase() + '  website');
+    $('#lang_change_advisory').text("Warning: All unsaved 'data entries' will be lost after language change.");
+    event.preventDefault();
+    $('.cd-popup').addClass('is-visible').show();
+    //close popup
+    $('.cd-popup').on('click', function(event){
+        if( $(event.target).is('.cd-popup-close') || $(event.target).is('.cd-popup') ) {
+                event.preventDefault();
+                $(this).removeClass('is-visible');
+        }
+        if($(event.target)[0].innerHTML=='OK'){
+            var base_url='https://bidplus.gem.gov.in/';
+            window.location.href = goto+'/?lang='+val;
+        } else {
+            window.location.reload();
+        }
+    });
+//close popup when clicking the esc keyboard button
+    $(document).keyup(function(event){
+    if(event.which=='27'){
+            $('.cd-popup').removeClass('is-visible');
+}
+    });
+}
+	$(window).scroll(function(){
+  var sticky = $('.sticky'),
+      scroll = $(window).scrollTop();
+
+  if (scroll >= 50) sticky.addClass('fixed');
+  else sticky.removeClass('fixed');
+});
+$('.menuac').click(function(){
+     
+   if($(this).hasClass('meact')){
+      $('.menuac').removeClass('meact');
+   }else{
+	   $('.menuac').removeClass('meact');
+     $(this).addClass('meact');
+   }
+    
+});
+
+$('.sd, .mse').click(function(e) {
+        e.preventDefault();
+        $('.mmen').toggleClass('open');
+    }); 
+function validateBuyBack()
+    {
+        var buyback_param_val = $('.buyback_param_val').val();
+        var buyback_description = $('.buyback_description').val();
+        var buyback_serial_no = $('.buyback_serial_no').val();
+        var buyback_model = $('.buyback_model').val();
+        var buyback_brand = $('.buyback_brand').val();
+        var buyback_yom = $('.buyback_yom').val();
+        var buyback_purchased_on = $('.buyback_purchased_on').val();
+        var buyback_age = $('.buyback_age').val();
+        var buyback_size = $('.buyback_size').val();
+        var buyback_rating = $('.buyback_rating').val();
+        var buyback_quantity = $('.buyback_quantity').val();
+        var buyback_unit = $('.buyback_unit').val();
+        var buyback_remark = $('.buyback_remark').val();
+        var buyback_uploaded_image = $('.buyback_uploaded_image').prop('files')[0];
+        var buyback_uploaded_name = $('#buyback_uploaded_name').val();
+        var year = new Date().getFullYear();
+        $(".error").remove();
+        var err = 0;
+        //alert(buyback_uploaded_image);
+        if(buyback_purchased_on.length>1){
+            var purchaseyear = buyback_purchased_on.split("-");
+            var purchase_year = purchaseyear['2'];
+        }
+        $('.buyback_param_val').after('');
+        if((buyback_param_val.length < 3) || (buyback_param_val.length > 25))
+        {
+            $('.buyback_param_val').after('<span class="error">Item details must be between 3 and 25 characters.</span>');
+            err++;
+        }
+        $('.buyback_description').after('');
+        if((buyback_description.length < 1) || (buyback_description.length > 150))
+        {
+            $('.buyback_description').after('<span class="error">Item description must be between 1 and 150 characters.</span>');
+             err++;
+        }
+        $('.buyback_serial_no').after('');
+        if((buyback_serial_no.length < 2) || (buyback_serial_no.length > 50))
+        {
+            $('.buyback_serial_no').after('<span class="error">Serial number must be between 2 and 50 characters.</span>');
+             err++;
+        }
+        if((buyback_model.length < 2) || (buyback_model.length > 50))
+        {
+            $('.buyback_model').after('<span class="error">Model number must be between 2 and 50 characters.</span>');
+             err++;
+        }
+        $('.buyback_brand').after('');
+        if((buyback_brand.length < 2) || (buyback_brand.length > 50))
+        {
+            $('.buyback_brand').after('<span class="error">Brand details must be between 2 and 50 characters.</span>');
+             err++;
+        }
+        $('.buyback_yom').after('');
+        if((buyback_yom.length < 4) || (buyback_yom.length > 4))
+        {
+            $('.buyback_yom').after('<span class="error">Please enter a valid year of manufacturing and must contain 4 digits.</span>');
+             err++;
+        }
+        else if((buyback_yom.length == 4) && (buyback_yom < '1950'))
+        {
+            $('.buyback_yom').after('<span class="error">Please enter a valid year of manufacturing and must be greater than or equal to 1950 and contain 4 digits.</span>');
+             err++;
+        }
+        else if((buyback_yom.length == 4) && (buyback_yom > year))
+        {
+            $('.buyback_yom').after('<span class="error">Please enter a valid year of manufacturing and must be smaller than or equal to current year and contain 4 digits.</span>');
+             err++;
+        }
+        $('.buyback_purchased_on').after('');
+        if(buyback_purchased_on.length<1)
+        {
+            $('.buyback_purchased_on').after('<span class="error">Please select valid Date Of Purchase.</span>');
+             err++;
+        }
+        else if(purchase_year<'1950')
+        {
+             $('.buyback_purchased_on').after('<span class="error">Please select valid Date Of Purchase must be greater than or equal to 1950.</span>');
+             err++;
+        }
+        $('.buyback_size').after('');
+        if(buyback_size.length > 50){
+            $('.buyback_size').after('<span class="error">Size must be between 1 and 50 characters.</span>');
+             err++;
+        }
+        $('.buyback_quantity').after('');
+        if(buyback_quantity < 1 || buyback_quantity > 999999999)
+        {
+            $('.buyback_quantity').after('<span class="error">Quantity must be between 1 and 999999999.</span>');
+             err++;
+        }
+        if((buyback_unit.length < 2) || (buyback_unit.length > 50))
+        {
+            $('.buyback_unit').after('<span class="error">Unit Of Measurement must be between 2 and 50 characters.</span>');
+             err++;
+        }
+        if((buyback_remark.length !='' ) && (buyback_remark.length > 250))
+        {
+            $('.buyback_remark').after('<span class="error">Remark must not exceed 250 characters.</span>');
+             err++;
+        }
+        if(buyback_uploaded_name.length < 1)
+        {
+            $('.buy_file_upload').after('<span class="error">Please upload a valid image. Only PNG/JPG/JPEG is allowed up to 10MB</span>');
+             err++;
+        }
+        return err;
+    }
+    $(document).ready(function() {
+        $('.time_edit_class').click(function(){
+            if($('.edit_hour_time').hasClass('in')){
+               $('.time_edit_class').removeClass("date-time-btn-disabled");
+            }else{
+               $('.time_edit_class').addClass("date-time-btn-disabled");
+            }
+        });
+});
+</script>
+
+<div class="cd-popup" style="display:none;" role="alert">
+    <div class="cd-popup-container">
+            <p id="confirm-msg"></p>
+            <ul class="cd-buttons">
+                    <li><a href="javascript:void(0);">OK</a></li>
+                    <li><a href="javascript:void(0);">Cancel</a></li>
+            </ul>
+            <a href="javascript:void(0);" class="cd-popup-close img-replace">Close</a>
+    </div> <!-- cd-popup-container -->
+</div> <!-- cd-popup -->

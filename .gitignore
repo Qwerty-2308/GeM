@@ -1,0 +1,17 @@
+# local data — seller profile, bids, request log
+data/
+*.sqlite3
+
+# secrets
+.env
+.env.*
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# os
+.DS_Store
