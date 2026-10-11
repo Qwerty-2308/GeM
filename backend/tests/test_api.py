@@ -104,3 +104,18 @@ def test_frontend_is_served(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "GeM Assistant" in response.text
+
+
+def test_pages_cannot_be_framed_or_sniffed(client):
+    """Any website could otherwise load this local app in a hidden frame and trick a click
+    on "Resume fetching"."""
+    for path in ("/", "/api/safety"):
+        headers = client.get(path).headers
+        assert "frame-ancestors 'none'" in headers["content-security-policy"]
+        assert headers["x-frame-options"] == "DENY"
+        assert headers["x-content-type-options"] == "nosniff"
+        assert headers["referrer-policy"] == "no-referrer"
+
+
+def test_no_third_party_script_page_is_served(client):
+    assert client.get("/api/docs").status_code == 404  # Swagger UI loads scripts from a CDN
