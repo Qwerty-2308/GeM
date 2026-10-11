@@ -13,6 +13,10 @@ from typing import Callable
 
 from . import normalizers as n
 
+# Bump whenever field rules, clause patterns or conflict checks change: stored bids analysed
+# by an older version are re-read from their kept PDF on the next start.
+PARSER_VERSION = 2
+
 # Matches the whitespace/newlines pypdf puts between label words.
 _ = r"\s+"
 

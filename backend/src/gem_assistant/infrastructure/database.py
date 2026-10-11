@@ -126,6 +126,11 @@ MIGRATIONS: list[str] = [
     ALTER TABLE bid ADD COLUMN corrigendum_note TEXT;
     ALTER TABLE discovery_run ADD COLUMN corrigenda_checked INTEGER NOT NULL DEFAULT 0;
     """,
+    # 4 — which version of the field rules analysed each bid. Everything stored before this
+    # was analysed by version 1, and is re-read when its PDF is available.
+    """
+    ALTER TABLE bid ADD COLUMN parser_version INTEGER NOT NULL DEFAULT 1;
+    """,
 ]
 
 

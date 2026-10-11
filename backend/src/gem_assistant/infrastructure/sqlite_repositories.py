@@ -106,15 +106,18 @@ class SqliteBidRepository:
 
     def save(self, analysis: BidAnalysis) -> int:
         with self._db.connect() as conn:
+            if analysis.id is not None:  # re-analysis: replace in place, keeping the id
+                conn.execute("DELETE FROM bid WHERE id = ?", (analysis.id,))
             if analysis.bid_number:
                 # A newer document for the same bid (e.g. after a corrigendum) replaces the old one.
                 conn.execute("DELETE FROM bid WHERE bid_number = ?", (analysis.bid_number,))
             cursor = conn.execute(
-                """INSERT INTO bid (bid_number, doc_id, source_name, sha256, page_count, unread_lines,
+                """INSERT INTO bid (id, bid_number, doc_id, source_name, sha256, page_count, unread_lines,
                                     imported_at, corrigendum_status, corrigendum_checked_at,
-                                    corrigendum_text, corrigendum_note)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                    corrigendum_text, corrigendum_note, parser_version)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
+                    analysis.id,
                     analysis.bid_number,
                     analysis.doc_id,
                     analysis.source_name,
@@ -126,13 +129,15 @@ class SqliteBidRepository:
                     _iso(analysis.corrigendum.checked_at),
                     analysis.corrigendum.text,
                     analysis.corrigendum.note,
+                    analysis.parser_version,
                 ),
             )
             bid_id = cursor.lastrowid
-            if analysis.bid_number:
+            if analysis.bid_number or analysis.doc_id:
                 conn.execute(
-                    "UPDATE listing_bid SET doc_status = 'DOWNLOADED', doc_note = NULL, bid_id = ? WHERE bid_number = ?",
-                    (bid_id, analysis.bid_number),
+                    "UPDATE listing_bid SET doc_status = 'DOWNLOADED', doc_note = NULL, bid_id = ? "
+                    "WHERE bid_number = ? OR doc_id = ?",
+                    (bid_id, analysis.bid_number, analysis.doc_id),
                 )
             conn.executemany(
                 """INSERT INTO bid_field (bid_id, position, name, label, status, value, critical,
@@ -207,6 +212,7 @@ class SqliteBidRepository:
                 text=row["corrigendum_text"],
                 note=row["corrigendum_note"],
             ),
+            parser_version=row["parser_version"],
         )
 
     def set_corrigendum(self, bid_id: int, corrigendum: Corrigendum) -> None:

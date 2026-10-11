@@ -116,6 +116,7 @@ class BidAnalysis(BaseModel):
     fields: list[ExtractedField]
     flags: list[ClauseFlag]
     corrigendum: Corrigendum = Field(default_factory=Corrigendum)
+    parser_version: int = 0  # which version of the field rules produced `fields`
 
     def field(self, name: str) -> ExtractedField | None:
         return next((f for f in self.fields if f.name == name), None)

@@ -88,6 +88,14 @@ class BreakerStateStore(Protocol):
 # ---------- document analysis ----------
 
 
+class DocumentStore(Protocol):
+    """Keeps analysed PDFs by content hash, so improved rules can re-read them."""
+
+    def save(self, sha256: str, pdf: bytes) -> None: ...
+    def load(self, sha256: str) -> bytes | None: ...
+
+
+
 class TextExtractor(Protocol):
     def extract(self, pdf_bytes: bytes) -> list[PageText]: ...
 

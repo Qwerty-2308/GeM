@@ -14,6 +14,7 @@ from .config import Settings
 from .domain.ports import Clock, HttpTransport, ListingSource
 from .eligibility.evaluator import EligibilityEvaluator
 from .infrastructure.database import Database
+from .infrastructure.document_store import FileDocumentStore
 from .infrastructure.browser_listing import PlaywrightListingSource, PlaywrightNetwork
 from .infrastructure.httpx_transport import HttpxTransport
 from .infrastructure.pypdf_extractor import PypdfTextExtractor, pdf_links
@@ -96,6 +97,8 @@ class Container:
             bids=bid_repo,
             clock=clock,
             max_bytes=settings.safety.max_download_bytes,
+            documents=FileDocumentStore(settings.data_dir / "documents"),
+            bid_reader=bid_repo,
         )
         listing_repo = SqliteListingRepository(db)
         bid_fetch = BidFetchService(fetcher, bid_import, listing_repo, bid_repo)

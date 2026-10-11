@@ -6,6 +6,7 @@
     gem-assistant discover           search GeM for your profile's categories (one run)
     gem-assistant corpus KEYWORD...  collect real bid documents for parser work (one run)
     gem-assistant probe FOLDER       after corpus: do buyer attachments open without login?
+    gem-assistant reanalyse          re-read stored bids with the current rules (serve does this too)
 """
 
 from __future__ import annotations
@@ -36,6 +37,8 @@ def main(argv: list[str] | None = None) -> int:
     corpus.add_argument("keywords", nargs="+")
     corpus.add_argument("--limit", type=int, default=30, help="documents to download (at most 30)")
 
+    sub.add_parser("reanalyse", help="re-read stored bids with the current rules (serve does this too)")
+
     probe = sub.add_parser("probe", help="after corpus: check once whether buyer attachments open without login")
     probe.add_argument("folder", type=Path)
 
@@ -43,12 +46,17 @@ def main(argv: list[str] | None = None) -> int:
     container = Container.build(Settings.from_env())
 
     if args.command == "serve":
+        _reanalyse(container)  # a parser update reaches existing bids before anyone looks
         import uvicorn
 
         from .api.app import create_app
 
         # 127.0.0.1 only: never reachable from other machines on the network.
         uvicorn.run(create_app(container), host="127.0.0.1", port=args.port)
+        return 0
+
+    if args.command == "reanalyse":
+        _reanalyse(container)
         return 0
 
     if args.command == "import":
@@ -96,6 +104,17 @@ def main(argv: list[str] | None = None) -> int:
             print("Fetching is now stopped. Check GeM in a normal browser, then reset it on the Safety page.")
         return 0
     return 1
+
+
+def _reanalyse(container: Container) -> None:
+    report = container.bid_import.reanalyse_outdated()
+    if report.updated:
+        print(f"Re-read {report.updated} stored bid(s) with the updated rules.")
+    if report.without_pdf:
+        print(f"{report.without_pdf} bid(s) were analysed before PDFs were kept and still show the old "
+              "reading. Import or fetch them again to update them.")
+    if report.failed:
+        print(f"{report.failed} stored PDF(s) could not be read again; their earlier reading is kept.")
 
 
 def _print_bid(container: Container, bid_id: int, note: str) -> None:

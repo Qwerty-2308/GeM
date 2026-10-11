@@ -129,3 +129,8 @@ def test_the_database_uses_write_ahead_logging(tmp_path):
     Database(path).migrate()
     with sqlite3.connect(path) as conn:
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+def test_bids_from_before_this_version_are_marked_for_re_reading(old_database):
+    Database(old_database).migrate()
+    assert SqliteBidRepository(Database(old_database)).get(1).parser_version == 1
