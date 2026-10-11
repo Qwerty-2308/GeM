@@ -4,16 +4,63 @@ A local, read-only tool that analyses GeM bid documents against your seller
 profile and shows evidence (page and exact quote) for every value. Design
 rationale lives in `../docs/00-RESEARCH-AND-ARCHITECTURE.md`.
 
+## Install (once)
+
+1. **Put this folder somewhere iCloud, Dropbox or OneDrive does not sync**, e.g.
+   `~/gem-assistant`. With "Desktop & Documents" in iCloud turned on, iCloud marks files
+   inside dot-folders (like `.venv`) as hidden, and Python then skips the file that makes the
+   command work. If it has to stay in a synced folder, keep the environment out of sync:
+   `cd backend && UV_PROJECT_ENVIRONMENT=.venv.nosync uv sync && ln -s .venv.nosync .venv`
+   (iCloud never syncs a name ending in `.nosync`; this is how this repo is set up on its
+   development Mac).
+2. Install [uv](https://docs.astral.sh/uv/): `brew install uv`.
+3. Install the app and the headless browser it uses for searching:
+   ```bash
+   cd backend
+   uv sync
+   uv run playwright install chromium
+   ```
+4. Add your contact email to `~/.zshrc` so every request names someone GeM can reach.
+   **Nothing is sent to GeM until it is set.**
+   ```bash
+   echo 'export GEM_CONTACT_EMAIL=you@example.com' >> ~/.zshrc
+   ```
+
 ## Run it
 
 ```bash
 cd backend
-uv sync                                  # Python deps into backend/.venv
-uv run playwright install chromium       # one-time: headless browser for bid search
-export GEM_CONTACT_EMAIL=you@example.com # required: goes in the User-Agent so GeM can reach you;
-                                        # nothing is sent to GeM until it is set
-uv run gem-assistant serve               # open http://127.0.0.1:8000
+uv run gem-assistant serve        # starts on http://127.0.0.1:8000 and opens it (--no-open to skip)
 ```
+
+Stop it with Ctrl-C. It only listens on this computer.
+
+## Your data
+
+Everything the app stores is in **`~/Library/Application Support/GeM Assistant`**
+(`$XDG_DATA_HOME/gem-assistant` on Linux; set `GEM_DATA_DIR` to use another folder). It is
+kept out of the project on purpose: the project may sit in a synced folder, and the seller
+profile must never leave this computer. The folder is owner-only.
+
+| What | Where |
+|---|---|
+| Seller profile, bids, verdict inputs, request log, safety state | `gem.sqlite3` |
+| Every analysed bid PDF, named by its SHA-256 | `documents/` |
+| Corpus runs | `corpus/<YYYYMMDD-HHMM>/` |
+
+**Backup:** Time Machine covers it. To copy it by hand, stop the app first and copy the
+whole folder.
+
+## After updating the code
+
+```bash
+git pull
+cd backend && uv sync
+```
+
+The next `serve` re-reads every stored bid whose analysis came from older rules, from its
+kept PDF (`gem-assistant reanalyse` does the same on demand). GeM changes its bid form every
+few months, so this is how a parser fix reaches bids you already have.
 
 Command-line equivalents:
 
@@ -22,7 +69,8 @@ uv run gem-assistant import path/to/bid.pdf     # analyse a PDF you already have
 uv run gem-assistant fetch https://bidplus.gem.gov.in/showbidDocument/8506455
 uv run gem-assistant discover                   # one search of the public listing
 uv run gem-assistant corpus pump laptop manpower   # one guarded run: up to 30 varied bid PDFs + manifest
-uv run gem-assistant probe data/corpus/<folder>    # afterwards: do buyer attachments open without login?
+uv run gem-assistant probe <data folder>/corpus/<YYYYMMDD-HHMM>   # afterwards: do buyer attachments open without login?
+uv run gem-assistant reanalyse                   # re-read stored bids with the current rules
 ```
 
 Run the tests:
@@ -31,20 +79,22 @@ Run the tests:
 uv run pytest
 ```
 
-### If `gem-assistant` says `No module named 'gem_assistant'`
+## Troubleshooting
 
-Something on this Mac sets the macOS *hidden* flag on files inside `.venv`, and Python
-3.12 silently ignores hidden `.pth` files — including the one that puts `src/` on the
-path. `uv run pytest` keeps working (it has its own `pythonpath`), so only the command
-line breaks. Clear the flag:
+**`No module named 'gem_assistant'`.** The project is in an iCloud-synced folder and iCloud
+has marked the venv's files hidden; Python 3.12 skips hidden `.pth` files. Check with
+`ls -lO .venv/lib/python3.12/site-packages/*.pth` (the flags column reads `hidden`). Move
+the project out of the synced folder, or use the `.venv.nosync` setup in Install step 1.
+`chflags -R nohidden .venv` works only until the next `uv sync`.
 
-```bash
-chflags -R nohidden .venv
-```
+**"Set GEM_CONTACT_EMAIL first".** Install step 4, then open a new terminal.
 
-Check with `ls -lO .venv/lib/python3.12/site-packages/*.pth` — the flags column reads
-`hidden` when this has happened. It is not a fault in the project or in uv, and nothing
-needs reinstalling.
+**"Fetching is stopped".** GeM answered with something that looks like a block, a login
+wall or an error, and the tool stopped itself. Open GeM in a normal browser; if it loads
+normally, resume on the Safety page and say what you checked.
+
+**"GeM updates its listing every 15 minutes".** Searches are at least 15 minutes apart, on
+purpose.
 
 ## What exists so far
 
@@ -54,10 +104,13 @@ needs reinstalling.
 | Local PDF import → field extraction → clause flags → eligibility verdict | done |
 | Safety layer (`SafeFetcher`): URL policy, rate limit, daily cap, circuit breaker, request log | done; every GeM request goes through it |
 | Add a bid by its `showbidDocument` link | done; 1 request, never repeated for the same document |
-| Search the public `/all-bids` listing (headless browser) | done; tested offline against the saved page, **not yet run live** |
+| Search the public `/all-bids` listing (headless browser) | done; **run live on 11-Oct-2026** (56 requests, no block signals) |
 | Corrigendum check for the bids it analyses | done; shown verbatim, never parsed into a new deadline |
 | Corpus collection (`corpus`): varied real bid PDFs + manifest for parser work | done |
-| Attachment check (`probe`): robots.txt first, then one spec document and one buyer terms file | done |
+| Attachment check (`probe`): robots.txt first, then one spec document and one buyer terms file | done; buyer ATC files are public |
+| Current GeM form (2026): relaxations (complete/partial), EMD/ePBG amounts, MII compliance | done; checked on 30 live bids |
+| Turnover and experience requirements compared with the profile | done; blocks only on a clear shortfall no relaxation covers |
+| Bid PDFs kept; stored bids re-read when the rules improve | done; automatic on `serve` |
 | LLM reading of free-text ATC, ATC attachments | later |
 
 ## How bid search works
@@ -70,7 +123,7 @@ needs reinstalling.
 - Results are read from the JSON response, not the screen. The parser accepts both plain values and one-item arrays and stops (instead of guessing) if the shape changes.
 - The browser's temporary cookies are discarded after each search.
 
-**About the first live search:** the JSON shape in the tests is reconstructed from the page's JavaScript; it hasn't been captured from GeM yet. The first real search saves the response to `data/recon/last-listing-response.json`. Check it and turn it into a test fixture. If GeM's session handling works differently from what the tests assume, the first search may stop with the breaker tripped. That's the intended safe failure: check GeM in a normal browser, then reset on the Safety page.
+**The listing response** was captured live on 11-Oct-2026 and is pinned as a test fixture (`tests/fixtures/all-bids-data_2026-10-11.json`): every field arrives as a one-element list, as the parser expected. Each search still saves the last response to `<data folder>/recon/last-listing-response.json`; if GeM changes the shape, the search stops with `ListingFormatChanged` instead of guessing.
 
 ## How the corrigendum check works
 
@@ -107,11 +160,11 @@ real documents (`../docs/02-RECON-FINDINGS.md`). `corpus` collects them:
   a constant in `services/corpus_service.py`; no setting can raise it.
 - It refuses to start unless today's remaining request budget covers the worst case, so it
   never stops half-way for budget reasons.
-- Output goes to `data/corpus/<YYYYMMDD-HHMM>/`: `pdf/<doc_id>.pdf`, `manifest.json` (one
+- Output goes to `<data folder>/corpus/<YYYYMMDD-HHMM>/`: `pdf/<doc_id>.pdf`, `manifest.json` (one
   row per bid: ministry, keyword, fields not found, links inside the PDF, corrigendum
   status), `listing-response.json` (the real search response) and `corrigenda/` (raw
-  fragments, if any). `data/` is gitignored: bid PDFs contain consignee names and phone
-  numbers.
+  fragments, if any). The data folder is outside the repo: bid PDFs contain consignee
+  names and phone numbers.
 
 `probe` is separate and runs afterwards. GeM puts the buyer's uploaded terms file and the
 specification document in the PDF as links, not text. `probe` reads robots.txt for each
@@ -134,6 +187,7 @@ backend/src/gem_assistant/
   infrastructure/browser_listing.py   headless search of the public listing
   services/discovery_service.py       one search run: search → store → download → analyse
   services/corpus_service.py          corpus collection + attachment probe (borrows discovery's guard rails)
+  infrastructure/document_store.py    kept bid PDFs, named by content hash
   parsing/                field_rules.py, clause_patterns.py = what to look for
   parsing/corrigendum_parser.py       reads "0" (none) or the amendment, as plain text
   eligibility/rules.py    one class per eligibility check
@@ -141,7 +195,7 @@ backend/src/gem_assistant/
   infrastructure/         SQLite, httpx, pypdf, clock: adapters for the ports
   api/                    FastAPI routes + response schemas
   container.py            composition root: the only place that wires concrete classes
-backend/tests/            183 tests, incl. the real bid PDF and the saved /all-bids page
+backend/tests/            283 tests, incl. four real bid PDFs (2025 + 2026), a real /all-bids-data response and the saved /all-bids page
 data/                     SQLite database (gitignored, owner-only permissions)
 ```
 
@@ -159,6 +213,10 @@ data/                     SQLite database (gitignored, owner-only permissions)
 - https on `*.gem.gov.in` only; robots.txt paths (`/resources/`, `/cgi-bin/`, `/bg_emd/`) are never fetched.
 - One request at a time, at least 4 s apart, at most 250 per day (the env vars can only make these stricter).
 - Nothing is sent to GeM until `GEM_CONTACT_EMAIL` is set.
+- One request at a time and the 4 s gap hold across every running copy of the app (the
+  request log is shared; an OS file lock in the data folder serialises requests).
+- The local web app sends a strict Content-Security-Policy and refuses to be framed, so no
+  website can trick a click on "Resume fetching".
 - Searches at least 15 minutes apart; at most 5 keywords × 2 pages and 5 downloads per search
   (the one-off `corpus` command: at most 30 downloads and 10 corrigendum checks).
 - POST only to the listing page's own search (`/all-bids-data`) and its own corrigendum view
