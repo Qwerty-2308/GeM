@@ -208,3 +208,19 @@ def test_html_where_json_expected_trips_breaker(container: Container):
     with pytest.raises(BlockedByGeM):
         container.fetcher.execute("https://bidplus.gem.gov.in/all-bids-data", "POST", lambda: page, Expect.JSON)
     assert container.safety.status().breaker.open
+
+
+def test_no_request_leaves_until_a_contact_email_is_set(settings, clock, transport):
+    from dataclasses import replace
+
+    from gem_assistant.config import PLACEHOLDER_CONTACT
+    from gem_assistant.safety.errors import MissingContactEmail
+
+    unset = replace(settings, safety=replace(settings.safety, contact_email=PLACEHOLDER_CONTACT))
+    c = Container.build(unset, clock=clock, transport=transport)
+    with pytest.raises(MissingContactEmail, match="GEM_CONTACT_EMAIL"):
+        c.fetcher.get("https://bidplus.gem.gov.in/all-bids")
+    with pytest.raises(MissingContactEmail):
+        c.fetcher.ensure_ready()
+    assert transport.calls == []
+    assert c.safety.status().used_today == 0

@@ -23,6 +23,7 @@ RULES = (
     "Searches are at least {gap} minutes apart, with capped keywords, pages and downloads.",
     "One request at a time, at least {interval:g}s apart, at most {limit} per day.",
     "Identifies itself honestly in the User-Agent. No proxies, IP rotation or browser disguise.",
+    "Nothing is sent to GeM until GEM_CONTACT_EMAIL is set.",
     "Any 401/403/429, server error, redirect, CAPTCHA or block page stops all fetching until you reset it.",
     "Failed requests are never retried automatically.",
 )

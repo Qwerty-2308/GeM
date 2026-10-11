@@ -14,11 +14,12 @@ from __future__ import annotations
 
 from typing import Callable
 
+from ..config import PLACEHOLDER_CONTACT
 from ..domain.models import RequestRecord
 from ..domain.ports import Clock, HttpResponse, HttpTransport, RequestLog
 from .circuit_breaker import CircuitBreaker
 from .daily_budget import DailyBudget
-from .errors import BlockedByGeM, UnexpectedResponse
+from .errors import BlockedByGeM, MissingContactEmail, UnexpectedResponse
 from .rate_limiter import RateLimiter
 from .response_classifier import Expect, ResponseClassifier, ResponseKind
 from .url_policy import UrlPolicy
@@ -58,6 +59,7 @@ class SafeFetcher:
         self, url: str, method: str, perform: Callable[[], HttpResponse], expect: Expect
     ) -> HttpResponse:
         with self._limiter.lock:  # one request at a time, ever
+            self._ensure_contact()
             self._breaker.ensure_closed()
             self._policy.check(url, method)
             self._budget.ensure_available()
@@ -86,9 +88,15 @@ class SafeFetcher:
             return response
 
     def ensure_ready(self) -> None:
-        """Cheap pre-check before starting a run: breaker closed and budget left."""
+        """Cheap pre-check before starting a run: contact set, breaker closed, budget left."""
+        self._ensure_contact()
         self._breaker.ensure_closed()
         self._budget.ensure_available()
+
+    def _ensure_contact(self) -> None:
+        if PLACEHOLDER_CONTACT in self.user_agent:
+            raise MissingContactEmail(
+                "Set GEM_CONTACT_EMAIL first: every request names a contact so GeM can reach you.")
 
     def _record(self, url: str, status: int | None, outcome: str) -> None:
         self._log.record(RequestRecord(at=self._clock.now(), url=url, status=status, outcome=outcome))

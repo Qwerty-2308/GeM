@@ -8,6 +8,10 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
+# Default contact address. SafeFetcher refuses to send anything while it is in use, so
+# GeM can always reach whoever runs the tool.
+PLACEHOLDER_CONTACT = "set-GEM_CONTACT_EMAIL@example.com"
+
 
 def _env_int(name: str, default: int) -> int:
     raw = os.environ.get(name)
@@ -26,7 +30,7 @@ class SafetySettings:
     daily_request_limit: int = 250
     request_timeout_seconds: float = 30.0
     max_download_bytes: int = 20 * 1024 * 1024
-    contact_email: str = "set-GEM_CONTACT_EMAIL@example.com"
+    contact_email: str = PLACEHOLDER_CONTACT
     allowed_host_suffix: str = "gem.gov.in"
     # From robots.txt observed 13-Sep-2026, plus our own hard bans.
     blocked_path_prefixes: tuple[str, ...] = (

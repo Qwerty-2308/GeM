@@ -20,3 +20,7 @@ class BlockedByGeM(SafetyError):
 
 class UnexpectedResponse(SafetyError):
     """A non-200 answer that is not a block (e.g. 404). Not retried."""
+
+
+class MissingContactEmail(SafetyError):
+    """No contact email is set, so GeM could not reach whoever runs this tool."""
