@@ -6,8 +6,10 @@ data/
 .env
 .env.*
 
-# python
+# python (the venv lives in .venv.nosync so iCloud skips it; .venv is a symlink)
+.venv
 .venv/
+*.nosync
 __pycache__/
 *.pyc
 .pytest_cache/

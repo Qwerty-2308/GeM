@@ -148,7 +148,8 @@ class Database:
             conn.close()
 
     def migrate(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.path.parent.exists():  # ours to create: seller data, owner-only
+            self.path.parent.mkdir(mode=0o700, parents=True)
         with self.connect() as conn:
             version = conn.execute("PRAGMA user_version").fetchone()[0]
             for index, script in enumerate(MIGRATIONS[version:], start=version + 1):

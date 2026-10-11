@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -11,6 +12,15 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 # Default contact address. SafeFetcher refuses to send anything while it is in use, so
 # GeM can always reach whoever runs the tool.
 PLACEHOLDER_CONTACT = "set-GEM_CONTACT_EMAIL@example.com"
+
+
+def default_data_dir() -> Path:
+    """Per-user app data, outside the project folder. The project may live in a synced
+    folder (iCloud Desktop & Documents, Dropbox), and the seller profile must never leave
+    this machine — nor should SQLite run under a sync client."""
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "GeM Assistant"
+    return Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "gem-assistant"
 
 
 def _env_int(name: str, default: int) -> int:
@@ -79,7 +89,7 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
-        data_dir = Path(os.environ.get("GEM_DATA_DIR", PROJECT_ROOT / "data"))
+        data_dir = Path(os.environ.get("GEM_DATA_DIR") or default_data_dir())
         safety = SafetySettings(
             min_interval_seconds=max(4.0, _env_float("GEM_MIN_INTERVAL_SECONDS", 4.0)),
             daily_request_limit=min(250, _env_int("GEM_DAILY_REQUEST_LIMIT", 250)),
