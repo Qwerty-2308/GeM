@@ -83,7 +83,8 @@ class Settings:
         safety = SafetySettings(
             min_interval_seconds=max(4.0, _env_float("GEM_MIN_INTERVAL_SECONDS", 4.0)),
             daily_request_limit=min(250, _env_int("GEM_DAILY_REQUEST_LIMIT", 250)),
-            contact_email=os.environ.get("GEM_CONTACT_EMAIL", SafetySettings.contact_email),
+            # An empty value counts as unset, so the request guard still refuses.
+            contact_email=os.environ.get("GEM_CONTACT_EMAIL", "").strip() or PLACEHOLDER_CONTACT,
         )
         defaults = DiscoverySettings()
         discovery = DiscoverySettings(

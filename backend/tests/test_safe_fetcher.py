@@ -231,3 +231,11 @@ def test_plain_text_is_judged_by_shape_not_by_words():
     page = HttpResponse(url="", status=200, headers={}, body=b"<!DOCTYPE html><html>Request Rejected</html>")
     assert ResponseClassifier().classify(robots, Expect.TEXT).kind is ResponseKind.OK
     assert ResponseClassifier().classify(page, Expect.TEXT).kind is ResponseKind.BLOCK
+
+
+@pytest.mark.parametrize("value", ["", "   "])
+def test_an_empty_contact_email_counts_as_unset(monkeypatch, value):
+    from gem_assistant.config import PLACEHOLDER_CONTACT
+
+    monkeypatch.setenv("GEM_CONTACT_EMAIL", value)
+    assert Settings.from_env().safety.contact_email == PLACEHOLDER_CONTACT
