@@ -38,3 +38,5 @@ F1 → F2 (docs) → F3 → F4 → F5 → F9 → F6 → F7 → F8 → F10/F11 �
 ## Progress
 - F1 done (abafec4); data moved to ~/Library/Application Support/GeM Assistant. F2: venv at backend/.venv.nosync + symlink, verified.
 - F3 done (8596e05): parser + TurnoverExperienceRule; corpus +206 values, 0 regressions. NEW F15: PDFs are discarded, so parser fixes never reach analysed bids -> keep PDFs + reanalyse.
+- F7 done (fa12985)
+- F15 done (cec8033): kept PDFs + reanalyse; this Mac's 30 bids backfilled and re-read. Non-MSE 10L/2y profile: 17/30 BLOCKED with evidence.

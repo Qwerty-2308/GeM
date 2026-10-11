@@ -256,3 +256,11 @@ def test_a_passed_deadline_only_blocks_when_gem_confirms_no_corrigendum(status, 
     assert result.outcome.value == outcome
     if outcome == "NEEDS_REVIEW":
         assert "may have been extended" in result.reason
+
+
+def test_a_no_corrigendum_answer_from_before_the_deadline_cannot_block():
+    """GeM said "no corrigendum" on 20 Sep and the document's deadline was 28 Sep. An
+    extension published after that check would not be in the answer."""
+    early = Corrigendum(status=CorrigendumStatus.NONE, checked_at=datetime(2026, 9, 20, tzinfo=timezone.utc))
+    (result,) = DeadlineRule().evaluate(_closed_bid(early), None, AT)
+    assert result.outcome.value == "NEEDS_REVIEW" and "may have been extended" in result.reason
