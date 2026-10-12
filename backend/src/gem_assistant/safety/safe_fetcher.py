@@ -99,7 +99,8 @@ class SafeFetcher:
     def _ensure_contact(self) -> None:
         if PLACEHOLDER_CONTACT in self.user_agent:
             raise MissingContactEmail(
-                "Set GEM_CONTACT_EMAIL first: every request names a contact so GeM can reach you.")
+                "Add your contact email on the Safety page first: every request names a contact "
+                "so GeM can reach you.")
 
     def _record(self, url: str, status: int | None, outcome: str) -> None:
         self._log.record(RequestRecord(at=self._clock.now(), url=url, status=status, outcome=outcome))

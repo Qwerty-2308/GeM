@@ -11,7 +11,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Callable
 
-from .config import Settings
+from .config import Settings, user_agent_for
 from .domain.ports import Clock, HttpTransport, ListingSource
 from .eligibility.evaluator import EligibilityEvaluator
 from .infrastructure.database import Database
@@ -90,7 +90,9 @@ class Container:
             classifier=ResponseClassifier(),
             log=request_log,
             clock=clock,
-            user_agent=settings.safety.user_agent,
+            user_agent=user_agent_for(
+                (settings.contact_file.read_text().strip() if settings.contact_file.exists() else "")
+                or settings.safety.contact_email),
             max_bytes=settings.safety.max_download_bytes,
         )
 
@@ -158,7 +160,7 @@ class Container:
             profiles=ProfileService(profile_repo, profile_repo, clock),
             bid_import=bid_import,
             bid_query=BidQueryService(bid_repo, profile_repo, EligibilityEvaluator(), clock),
-            safety=SafetyService(breaker, budget, request_log, settings.safety,
+            safety=SafetyService(breaker, budget, request_log, settings.safety, fetcher, settings.contact_file,
                                  settings.discovery.min_minutes_between_runs),
             fetcher=fetcher,
             bid_fetch=bid_fetch,

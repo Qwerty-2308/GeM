@@ -80,6 +80,7 @@ class SafetyOut(BaseModel):
     budget: BudgetOut
     min_interval_seconds: float
     user_agent: str
+    contact_email: str | None
     recent_requests: list[RequestRecord]
     rules: list[str]
 
@@ -90,9 +91,14 @@ class SafetyOut(BaseModel):
             budget=BudgetOut(used_today=s.used_today, daily_limit=s.daily_limit),
             min_interval_seconds=s.min_interval_seconds,
             user_agent=s.user_agent,
+            contact_email=s.contact_email,
             recent_requests=s.recent_requests,
             rules=s.rules,
         )
+
+
+class ContactIn(BaseModel):
+    email: str
 
 
 class ResetIn(BaseModel):

@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from typing import Callable, Sequence
 
 from ..config import DiscoverySettings
-from ..domain.models import CorrigendumStatus, DiscoveryRun, DocStatus, ListingEntry, mentions
+from ..domain.models import CorrigendumStatus, DiscoveryRun, DocStatus, ListingEntry, SellerProfile, item_match
 from ..domain.ports import (
     Clock, CorrigendumWriter, DiscoveryRunStore, ListingRepository, ListingSource, ProfileReader,
 )
@@ -100,9 +100,25 @@ class DiscoveryService:
             keywords=self.keywords(),
             last_run=self._runs.last(),
             next_allowed_at=self.next_allowed_at(),
-            listings=self._listings.recent(100),
+            listings=self._ranked(self._listings.recent(100), self._profiles.get(), self.keywords()),
             settings=self._settings,
         )
+
+    @staticmethod
+    def _ranked(entries: list[ListingEntry], profile: SellerProfile | None,
+                keywords: Sequence[str]) -> list[ListingEntry]:
+        """His products first: by share of the bid that is his ("match") or by closing
+        time ("closing"), then everything else in the order given."""
+        ignore = profile.ignore_words if profile else []
+        scored = []
+        for entry in entries:
+            hits, total = item_match(entry.category, keywords, ignore)
+            scored.append(entry.model_copy(update={"matched_items": hits, "total_items": total}))
+        if profile is None or profile.bid_order == "match":
+            key = lambda e: (not e.matched_items, -e.matched_items / max(e.total_items, 1))  # noqa: E731
+        else:
+            key = lambda e: (not e.matched_items, e.ends_at is None, e.ends_at or datetime.min)  # noqa: E731
+        return sorted(scored, key=key)  # stable: ties keep the repository's order
 
     # ---------- commands ----------
 
@@ -187,13 +203,12 @@ class DiscoveryService:
             run.new += len(self._listings.upsert(result.bids, result.keyword, now))
 
         # GeM's search matches loosely ("office chair" also returns photo paper), and
-        # downloads are capped: spend them only on bids naming one of the categories.
-        wanted: list[ListingEntry] = []
-        for entry in self._listings.pending_downloads(10_000, now):
-            if any(mentions(entry.category, k) for k in run.keywords):
-                wanted.append(entry)
-            else:  # stays pending, so a category added later can still pick it up
-                self._listings.mark(entry.doc_id, DocStatus.PENDING, "Doesn't name any of your categories")
+        # downloads are capped: spend them on bids made of his products, in his order.
+        ranked = self._ranked(self._listings.pending_downloads(10_000, now), self._profiles.get(), run.keywords)
+        wanted = [e for e in ranked if e.matched_items]
+        for entry in ranked:
+            if not entry.matched_items:  # stays pending, so a product added later can still pick it up
+                self._listings.mark(entry.doc_id, DocStatus.PENDING, "None of its items is one of your products")
 
         analysed: dict[str, int] = {}  # doc_id -> bid_id, for the corrigendum pass
         for entry in wanted[: self._settings.max_downloads_per_run]:

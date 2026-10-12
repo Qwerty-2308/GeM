@@ -51,6 +51,8 @@ class SqliteProfileRepository:
             categories=json.loads(row["categories_json"]),
             certifications=json.loads(row["certifications_json"]),
             states=json.loads(row["states_json"]),
+            ignore_words=json.loads(row["ignore_json"]),
+            bid_order=row["bid_order"],
             updated_at=_dt(row["updated_at"]),
         )
 
@@ -60,8 +62,8 @@ class SqliteProfileRepository:
                 """
                 INSERT INTO seller_profile (id, business_name, is_mse, is_startup, is_oem,
                     annual_turnover_rupees, years_experience, categories_json,
-                    certifications_json, states_json, updated_at)
-                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    certifications_json, states_json, ignore_json, bid_order, updated_at)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     business_name = excluded.business_name,
                     is_mse = excluded.is_mse,
@@ -72,6 +74,8 @@ class SqliteProfileRepository:
                     categories_json = excluded.categories_json,
                     certifications_json = excluded.certifications_json,
                     states_json = excluded.states_json,
+                    ignore_json = excluded.ignore_json,
+                    bid_order = excluded.bid_order,
                     updated_at = excluded.updated_at
                 """,
                 (
@@ -84,6 +88,8 @@ class SqliteProfileRepository:
                     json.dumps(profile.categories),
                     json.dumps(profile.certifications),
                     json.dumps(profile.states),
+                    json.dumps(profile.ignore_words),
+                    profile.bid_order,
                     _iso(profile.updated_at),
                 ),
             )

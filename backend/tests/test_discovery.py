@@ -199,7 +199,46 @@ def test_only_bids_that_mention_a_category_are_downloaded(app, transport, source
     assert [u for u, _ in transport.calls] == ["https://bidplus.gem.gov.in/showbidDocument/9000002"]
     skipped = next(e for e in app.discovery.status().listings if e.doc_id == "9000001")
     assert skipped.doc_status is DocStatus.PENDING  # a later category can still pick it up
-    assert "categories" in skipped.doc_note
+    assert "your products" in skipped.doc_note
+
+
+BASKET_DOC = make_doc(3, b_category_name=["Ashtray Crystal,Fire Extinguisher,Hair Dryer,Mirror"],
+                      final_end_date_sort="2025-11-10T12:00:00Z")   # closes first, 1 of 4 items is his
+FOCUSED_DOC = make_doc(4, b_category_name=["Portable Fire Extinguisher"],
+                       final_end_date_sort="2025-11-20T12:00:00Z")  # closes later, all his
+
+
+def _downloaded_ids(transport):
+    return [u.rsplit("/", 1)[-1] for u, _ in transport.calls]
+
+
+@pytest.mark.parametrize("order, expected", [
+    ("match", ["9000004", "9000003"]),    # the bid made of his products first
+    ("closing", ["9000003", "9000004"]),  # whatever closes first
+])
+def test_downloads_follow_the_chosen_order(app, transport, source, order, expected):
+    app.profiles.save(SellerProfile(categories=["fire extinguisher"], bid_order=order))
+    source.docs = [BASKET_DOC, FOCUSED_DOC]
+    _queue_pdf(transport); _queue_pdf(transport)
+    assert app.discovery.run().outcome == "ok"
+    assert _downloaded_ids(transport) == expected
+
+
+def test_ignored_words_keep_a_bid_from_being_downloaded(app, transport, source):
+    app.profiles.save(SellerProfile(categories=["fire extinguisher"], ignore_words=["refilling"]))
+    source.docs = [make_doc(5, b_category_name=["Refilling of Fire Extinguisher"]), FOCUSED_DOC]
+    _queue_pdf(transport)
+    app.discovery.run()
+    assert _downloaded_ids(transport) == ["9000004"]
+
+
+def test_found_list_puts_his_products_first_and_says_how_much_is_his(app, transport, source):
+    app.profiles.save(SellerProfile(categories=["fire extinguisher"]))
+    source.docs = [make_doc(6, b_category_name=["Volley Ball"]), BASKET_DOC, FOCUSED_DOC]
+    _queue_pdf(transport); _queue_pdf(transport)
+    app.discovery.run()
+    listed = [(e.doc_id, e.matched_items, e.total_items) for e in app.discovery.status().listings]
+    assert listed == [("9000004", 1, 1), ("9000003", 1, 4), ("9000006", 0, 1)]
 
 
 # ---------- fetch by link ----------

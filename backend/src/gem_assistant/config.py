@@ -57,7 +57,11 @@ class SafetySettings:
 
     @property
     def user_agent(self) -> str:
-        return f"GeMAssistant/0.1 (private seller tool; contact: {self.contact_email})"
+        return user_agent_for(self.contact_email)
+
+
+def user_agent_for(contact_email: str) -> str:
+    return f"GeMAssistant/0.1 (private seller tool; contact: {contact_email})"
 
 
 @dataclass(frozen=True)
@@ -86,6 +90,12 @@ class Settings:
     @property
     def recon_dir(self) -> Path:
         return self.data_dir / "recon"
+
+    @property
+    def contact_file(self) -> Path:
+        """The contact email typed into the app. It wins over GEM_CONTACT_EMAIL, so a
+        seller never has to edit shell files."""
+        return self.data_dir / "contact-email.txt"
 
     @classmethod
     def from_env(cls) -> "Settings":

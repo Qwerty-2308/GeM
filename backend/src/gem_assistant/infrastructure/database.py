@@ -131,6 +131,12 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE bid ADD COLUMN parser_version INTEGER NOT NULL DEFAULT 1;
     """,
+    # 5 — what to look for on GeM: words that take an item out of his products, and which
+    # bids a search downloads first ("match": mostly his products; "closing": soonest).
+    """
+    ALTER TABLE seller_profile ADD COLUMN ignore_json TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE seller_profile ADD COLUMN bid_order TEXT NOT NULL DEFAULT 'match';
+    """,
 ]
 
 

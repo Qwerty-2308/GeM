@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Callable
 
 from ..domain.models import (
-    BidAnalysis, CorrigendumStatus, FieldStatus, RuleResult, SellerProfile, Verdict, mentions,
+    BidAnalysis, CorrigendumStatus, FieldStatus, RuleResult, SellerProfile, Verdict, item_match,
 )
 from ..parsing.clause_patterns import DEFAULT_CLAUSE_PATTERNS
 
@@ -236,15 +236,22 @@ class CategoryMatchRule:
     def evaluate(self, bid: BidAnalysis, profile: SellerProfile | None, now: datetime) -> list[RuleResult]:
         if profile is None or not profile.categories:
             return []
-        haystack = " ".join(filter(None, [
-            bid.found_value("item_category"), bid.found_value("relevant_categories"),
-        ]))
-        if any(mentions(haystack, c) for c in profile.categories):
-            return []
-        field = bid.field("item_category")
-        return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,
-                           reason="Item doesn't match any category in your profile.",
-                           evidence=field.evidence if field else None)]
+        items = bid.field("item_category")
+        hits, total = item_match(bid.found_value("item_category"), profile.categories, profile.ignore_words)
+        if hits == 0 and not item_match(bid.found_value("relevant_categories"), profile.categories,
+                                        profile.ignore_words)[0]:
+            return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,
+                               reason="None of the items in this bid is one of your products.",
+                               evidence=items.evidence if items else None)]
+        method = bid.field("evaluation_method")
+        if 0 < hits < total and "total value" in (bid.found_value("evaluation_method") or "").lower():
+            # A reseller might source the rest, so this is a look, not a block.
+            mine = "1 is one of your products" if hits == 1 else f"{hits} are your products"
+            return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,
+                               reason=f"This bid is judged on total value, so you must quote for all {total} "
+                                      f"items; {mine}.",
+                               evidence=method.evidence if method else None)]
+        return []
 
 
 DEFAULT_RULES = (

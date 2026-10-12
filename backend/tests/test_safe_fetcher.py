@@ -218,7 +218,7 @@ def test_no_request_leaves_until_a_contact_email_is_set(settings, clock, transpo
 
     unset = replace(settings, safety=replace(settings.safety, contact_email=PLACEHOLDER_CONTACT))
     c = Container.build(unset, clock=clock, transport=transport)
-    with pytest.raises(MissingContactEmail, match="GEM_CONTACT_EMAIL"):
+    with pytest.raises(MissingContactEmail, match="Safety page"):
         c.fetcher.get("https://bidplus.gem.gov.in/all-bids")
     with pytest.raises(MissingContactEmail):
         c.fetcher.ensure_ready()

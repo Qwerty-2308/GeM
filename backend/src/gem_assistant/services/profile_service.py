@@ -19,6 +19,7 @@ class ProfileService:
             "categories": _unique(profile.categories),
             "certifications": _unique(profile.certifications),
             "states": _unique(profile.states),
+            "ignore_words": _unique(profile.ignore_words),
             "updated_at": self._clock.now(),
         })
         return self._writer.save(cleaned)

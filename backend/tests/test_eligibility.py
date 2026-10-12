@@ -9,6 +9,7 @@ import pytest
 from gem_assistant.domain.models import (
     BidAnalysis, Evidence, ExtractedField, ExtractionMethod, FieldStatus, SellerProfile,
 )
+from gem_assistant.domain.models import item_match
 from gem_assistant.eligibility.rules import CategoryMatchRule, EmdRule, TurnoverExperienceRule, inr
 
 AT = datetime(2026, 10, 11, tzinfo=timezone.utc)
@@ -92,9 +93,49 @@ def test_inr_uses_indian_digit_grouping(rupees, text):
     ("Chairs", "Office Chair", True),                       # plural in the profile, singular in the bid
     ("fire extinguisher", "Portable Fire Extinguishers (V3)", True),
     ("Pen", "Open Racks For Office", False),                # not a word in the bid, only letters inside one
-    ("office chair", "Office Table,Visitor Chair", True),   # both words, not side by side
+    ("office chair", "Composite Office Tables,Chair for General Purpose", False),  # words from two items
+    ("office chair", "Office Table,Office Chair,Visitor Chair", True),
     ("fire extinguisher", "Fire Retardant Tarpaulin", False),
 ])
 def test_category_match_compares_whole_words(category, item, matches):
     results = CategoryMatchRule().evaluate(_bid(item_category=item), SellerProfile(categories=[category]), AT)
     assert (results == []) is matches
+
+
+@pytest.mark.parametrize("text, keywords, ignore, expected", [
+    ("Office Table,Office Chair,Visitor Chair", ["office chair"], [], (1, 3)),
+    ("Refilling of Fire Extinguisher,Portable Fire Extinguisher", ["fire extinguisher"], ["refilling"], (1, 2)),
+    ("Fire Extinguisher,Fire Extinguisher,Hose", ["fire extinguisher"], [], (1, 2)),  # repeats count once
+    ("", ["pump"], [], (0, 0)),
+])
+def test_item_match_counts_items_naming_a_product(text, keywords, ignore, expected):
+    assert item_match(text, keywords, ignore) == expected
+
+
+BASKET = "Ashtray Crystal (Q3) , Fire Extinguisher 2 kg (Q2) , Hair Dryer Philips (Q3)"
+
+
+def test_a_total_value_basket_says_how_many_items_must_be_quoted():
+    """GeM evaluates most bids on total value: the seller must quote every item, so one
+    fire extinguisher in a basket of ashtrays is not a bid he can win."""
+    bid = _bid(item_category=BASKET, evaluation_method="Total value wise evaluation")
+    (result,) = CategoryMatchRule().evaluate(bid, SellerProfile(categories=["fire extinguisher"]), AT)
+    assert result.outcome.value == "NEEDS_REVIEW"
+    assert "all 3 items" in result.reason and "1 is one of your products" in result.reason
+    assert result.evidence.quote == "evaluation_method Total value wise evaluation"
+
+
+@pytest.mark.parametrize("method, categories", [
+    ("Item wise evaluation", ["fire extinguisher"]),                        # he can quote just his item
+    ("Total value wise evaluation", ["fire extinguisher", "ashtray", "hair dryer"]),  # he sells all three
+])
+def test_no_basket_warning_when_he_can_quote(method, categories):
+    bid = _bid(item_category=BASKET, evaluation_method=method)
+    assert CategoryMatchRule().evaluate(bid, SellerProfile(categories=categories), AT) == []
+
+
+def test_ignored_words_take_an_item_out_of_his_products():
+    bid = _bid(item_category="Refilling of Fire Extinguisher")
+    profile = SellerProfile(categories=["fire extinguisher"], ignore_words=["refilling"])
+    (result,) = CategoryMatchRule().evaluate(bid, profile, AT)
+    assert "None of the items" in result.reason

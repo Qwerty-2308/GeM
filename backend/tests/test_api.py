@@ -66,7 +66,7 @@ def test_profile_round_trip_changes_verdict_reasons(client):
 
     reasons = " ".join(r["reason"] for r in client.get(f"/api/bids/{bid_id}").json()["results"])
     assert "No seller profile" not in reasons
-    assert "doesn't match any category" in reasons
+    assert "None of the items in this bid is one of your products" in reasons
 
 
 def test_non_pdf_upload_is_rejected(client):
@@ -134,3 +134,43 @@ def test_serve_opens_the_app_in_the_browser(monkeypatch, tmp_path, args, opens):
     assert cli.main(args) == 0
     assert served == [("127.0.0.1", 8000)]
     assert opened == (["http://127.0.0.1:8000/"] if opens else [])
+
+
+@pytest.fixture
+def fresh_install(settings, clock, transport):
+    """As installed: nobody has set GEM_CONTACT_EMAIL."""
+    from dataclasses import replace
+
+    from gem_assistant.config import PLACEHOLDER_CONTACT
+    settings = replace(settings, safety=replace(settings.safety, contact_email=PLACEHOLDER_CONTACT))
+    return settings, Container.build(settings, clock=clock, transport=transport)
+
+
+def test_contact_email_can_be_set_from_the_app(fresh_install, clock, transport):
+    settings, container = fresh_install
+    client = TestClient(create_app(container, allowed_hosts=frozenset({"testserver"})))
+    assert client.get("/api/safety").json()["contact_email"] is None
+
+    response = client.put("/api/safety/contact", json={"email": " seller@example.com "})
+    assert response.status_code == 200, response.text
+    assert response.json()["contact_email"] == "seller@example.com"
+    assert "contact: seller@example.com" in container.fetcher.user_agent
+    container.fetcher.ensure_ready()  # no longer refuses
+
+    again = Container.build(settings, clock=clock, transport=transport)  # survives a restart
+    assert "contact: seller@example.com" in again.fetcher.user_agent
+
+
+@pytest.mark.parametrize("email", ["", "not-an-email", "a@b", "x@example.com\r\nX-Evil: 1", "a b@example.com"])
+def test_a_bad_contact_email_is_refused(client, container, email):
+    before = container.fetcher.user_agent
+    assert client.put("/api/safety/contact", json={"email": email}).status_code == 400
+    assert container.fetcher.user_agent == before
+
+
+def test_search_preferences_round_trip(client):
+    profile = {"categories": ["fire extinguisher"], "ignore_words": ["refilling", "AMC"], "bid_order": "closing"}
+    assert client.put("/api/profile", json=profile).status_code == 200
+    saved = client.get("/api/profile").json()
+    assert (saved["ignore_words"], saved["bid_order"]) == (["refilling", "AMC"], "closing")
+    assert client.put("/api/profile", json={**profile, "bid_order": "random"}).status_code == 422
