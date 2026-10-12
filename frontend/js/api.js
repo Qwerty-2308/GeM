@@ -53,5 +53,6 @@ export class ApiClient {
 
   // ---- safety ----
   getSafety() { return this.#request("/safety"); }
+  setContactEmail(email) { return this.#json("PUT", "/safety/contact", { email }); }
   resetBreaker(note) { return this.#json("POST", "/safety/reset", { confirmed: true, note }); }
 }

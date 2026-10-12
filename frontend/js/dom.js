@@ -62,6 +62,11 @@ export function evidenceBlock(evidence) {
   );
 }
 
+// GeM item lists run to 1,000 characters; the full text goes in a tooltip.
+export function clip(text, max = 140) {
+  return text && text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
 export function splitList(text) {
   return text.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
 }

@@ -1,5 +1,33 @@
 import { el, notice, formatDateTime } from "../dom.js";
 
+// GeM sees this in every request, so it can reach the seller instead of blocking him.
+export function contactCard(api, current) {
+  const input = el("input", { type: "text", inputmode: "email", autocomplete: "email", id: "contact-email",
+    placeholder: "you@example.com", value: current || "" });
+  const button = el("button", { type: "submit" }, "Save email");
+  const status = el("div");
+  const form = el("form", { class: "card" },
+    el("label", { for: "contact-email" }, "Your email, sent to GeM with every request"),
+    el("div", { class: "row" }, el("div", { style: "flex:1;min-width:240px" }, input), button),
+    el("div", { class: "hint" },
+      "So GeM can contact you if anything looks wrong, instead of blocking. Nothing else about you is sent."),
+    status,
+  );
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    button.disabled = true;
+    try {
+      await api.setContactEmail(input.value);
+      status.replaceChildren(notice("ok", "Saved. Searches can reach GeM now."));
+    } catch (error) {
+      status.replaceChildren(notice("bad", error.message));
+    } finally {
+      button.disabled = false;
+    }
+  });
+  return form;
+}
+
 export async function renderSafety(container, _params, api) {
   const safety = await api.getSafety();
   const { breaker, budget } = safety;
@@ -47,6 +75,7 @@ export async function renderSafety(container, _params, api) {
     );
   }
   container.append(breakerCard);
+  container.append(contactCard(api, safety.contact_email));
 
   // ---- limits ----
   container.append(
