@@ -20,11 +20,12 @@ rationale lives in `../docs/00-RESEARCH-AND-ARCHITECTURE.md`.
    uv sync
    uv run playwright install chromium
    ```
-4. Add your contact email to `~/.zshrc` so every request names someone GeM can reach.
-   **Nothing is sent to GeM until it is set.**
-   ```bash
-   echo 'export GEM_CONTACT_EMAIL=you@example.com' >> ~/.zshrc
-   ```
+4. Start it (below) and type your email in the box on the **Find bids** page, so every
+   request names someone GeM can reach. **Nothing is sent to GeM until it is set.** It is kept
+   in the data folder (`contact-email.txt`); `GEM_CONTACT_EMAIL` works too, but the app's value wins.
+5. On **Find bids**, fill in *What to look for*: the products you sell, words to ignore
+   (refilling, repair, AMC…), and whether bids made mostly of your products or bids closing
+   soonest come first. Then fill in turnover and experience on **Seller profile**.
 
 ## Run it
 
@@ -87,7 +88,7 @@ has marked the venv's files hidden; Python 3.12 skips hidden `.pth` files. Check
 the project out of the synced folder, or use the `.venv.nosync` setup in Install step 1.
 `chflags -R nohidden .venv` works only until the next `uv sync`.
 
-**"Set GEM_CONTACT_EMAIL first".** Install step 4, then open a new terminal.
+**"Add your contact email on the Safety page first".** Type it on the Find bids or Safety page.
 
 **"Fetching is stopped".** GeM answered with something that looks like a block, a login
 wall or an error, and the tool stopped itself. Open GeM in a normal browser; if it loads
@@ -122,7 +123,8 @@ purpose.
 - The page's automatic "show all bids" search on load is blocked too, so each keyword costs exactly one request per results page.
 - Results are read from the JSON response, not the screen. The parser accepts both plain values and one-item arrays and stops (instead of guessing) if the shape changes.
 - The browser's temporary cookies are discarded after each search.
-- GeM's search matches loosely: "office chair" also returns photo paper and manpower services. So only bids whose item list contains every word of one of your categories are downloaded; a plural "s" is ignored. Every other bid is still listed, marked "Not analysed" with the reason, and a category you add later can still pick it up.
+- GeM's search matches loosely: "office chair" also returns photo paper and manpower services. So a bid counts only when one of its items contains every word of one of your products (a plural "s" is ignored, and items naming an ignored word don't count). Downloads go to those bids, either the ones made mostly of your products or the ones closing soonest, as chosen on the page. Every other bid is still listed, marked "Not analysed" with the reason, and a product you add later can still pick it up.
+- Most bids (31 of 35 seen) are judged on total value, so the seller must quote every item. When only some items are his, the verdict says how many.
 
 **The listing response** was captured live on 11-Oct-2026 and is pinned as a test fixture (`tests/fixtures/all-bids-data_2026-10-11.json`): every field arrives as a one-element list, as the parser expected. Each search still saves the last response to `<data folder>/recon/last-listing-response.json`; if GeM changes the shape, the search stops with `ListingFormatChanged` instead of guessing.
 
@@ -213,7 +215,7 @@ backend/tests/            283 tests, incl. four real bid PDFs (2025 + 2026), a r
 - No login, credentials or accounts anywhere. The browser's temporary cookies are discarded after each search.
 - https on `*.gem.gov.in` only; robots.txt paths (`/resources/`, `/cgi-bin/`, `/bg_emd/`) are never fetched.
 - One request at a time, at least 4 s apart, at most 250 per day (the env vars can only make these stricter).
-- Nothing is sent to GeM until `GEM_CONTACT_EMAIL` is set.
+- Nothing is sent to GeM until a contact email is set (on the page, or `GEM_CONTACT_EMAIL`).
 - One request at a time and the 4 s gap hold across every running copy of the app (the
   request log is shared; an OS file lock in the data folder serialises requests).
 - The local web app sends a strict Content-Security-Policy and refuses to be framed, so no
