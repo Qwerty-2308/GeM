@@ -34,7 +34,7 @@ class BidSummaryOut(BaseModel):
             item_category=bid.found_value("item_category"),
             organisation=bid.found_value("organisation"),
             ministry=bid.found_value("ministry"),
-            closes_at=bid.found_value("bid_end"),
+            closes_at=bid.deadline().isoformat() if bid.deadline() else None,
             verdict=item.assessment.verdict,
             review_count=item.assessment.review_count,
             imported_at=bid.imported_at,

@@ -145,6 +145,15 @@ class BidAnalysis(BaseModel):
     flags: list[ClauseFlag]
     corrigendum: Corrigendum = Field(default_factory=Corrigendum)
     parser_version: int = 0  # which version of the field rules produced `fields`
+    # GeM's bid list's closing time, read on the latest search. Not stored with the bid:
+    # it is GeM's own current value and reflects any extension the PDF can't.
+    listed_end: datetime | None = None
+
+    def deadline(self) -> datetime | None:
+        """The later of the PDF's deadline and GeM's listing's."""
+        end = self.found_value("bid_end")
+        dates = [d for d in (datetime.fromisoformat(end) if end else None, self.listed_end) if d]
+        return max(dates) if dates else None
 
     def field(self, name: str) -> ExtractedField | None:
         return next((f for f in self.fields if f.name == name), None)

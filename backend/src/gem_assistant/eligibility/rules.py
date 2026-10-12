@@ -49,11 +49,10 @@ class DeadlineRule:
     name = "deadline"
 
     def evaluate(self, bid: BidAnalysis, profile: SellerProfile | None, now: datetime) -> list[RuleResult]:
-        end = bid.found_value("bid_end")
-        if end is None:
+        if bid.found_value("bid_end") is None:
             return []  # missing critical fields are handled by CriticalFieldsRule
         field = bid.field("bid_end")
-        deadline = datetime.fromisoformat(end)
+        deadline = bid.deadline()  # GeM's listing, when later, carries any extension
         if deadline > now:
             return []
         checked_at = bid.corrigendum.checked_at

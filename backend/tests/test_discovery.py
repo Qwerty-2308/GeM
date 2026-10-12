@@ -241,6 +241,20 @@ def test_found_list_puts_his_products_first_and_says_how_much_is_his(app, transp
     assert listed == [("9000004", 1, 1), ("9000003", 1, 4), ("9000006", 0, 1)]
 
 
+def test_a_bid_shows_gems_current_deadline_from_the_latest_search(app, transport, source, clock):
+    """The PDF keeps the original deadline; the listing carries any extension."""
+    _queue_pdf(transport)
+    app.discovery.run()
+    (assessed,) = app.bid_query.list()
+    assert assessed.bid.found_value("bid_end") == "2025-11-14T12:00:00+05:30"
+
+    clock.advance(minutes=16)
+    source.docs = [{**SAMPLE_DOC, "final_end_date_sort": "2025-11-21T12:00:00Z"}]  # extended a week
+    app.discovery.run()
+    (assessed,) = app.bid_query.list()
+    assert assessed.bid.deadline() == datetime.fromisoformat("2025-11-21T12:00:00+05:30")
+
+
 # ---------- fetch by link ----------
 
 @pytest.mark.parametrize("link", [

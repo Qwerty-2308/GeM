@@ -186,6 +186,10 @@ class SqliteBidRepository:
             flag_rows = conn.execute(
                 "SELECT * FROM bid_flag WHERE bid_id = ? ORDER BY position", (bid_id,)
             ).fetchall()
+            listed = conn.execute(
+                """SELECT ends_at FROM listing_bid WHERE bid_id = ? OR bid_number = ?
+                   ORDER BY last_seen_at DESC LIMIT 1""", (bid_id, row["bid_number"]),
+            ).fetchone()
 
         return BidAnalysis(
             id=row["id"],
@@ -219,6 +223,7 @@ class SqliteBidRepository:
                 note=row["corrigendum_note"],
             ),
             parser_version=row["parser_version"],
+            listed_end=_dt(listed["ends_at"]) if listed else None,
         )
 
     def set_corrigendum(self, bid_id: int, corrigendum: Corrigendum) -> None:

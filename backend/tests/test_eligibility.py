@@ -10,7 +10,7 @@ from gem_assistant.domain.models import (
     BidAnalysis, Evidence, ExtractedField, ExtractionMethod, FieldStatus, SellerProfile,
 )
 from gem_assistant.domain.models import item_match
-from gem_assistant.eligibility.rules import CategoryMatchRule, EmdRule, TurnoverExperienceRule, inr
+from gem_assistant.eligibility.rules import DeadlineRule, CategoryMatchRule, EmdRule, TurnoverExperienceRule, inr
 
 AT = datetime(2026, 10, 11, tzinfo=timezone.utc)
 
@@ -139,3 +139,15 @@ def test_ignored_words_take_an_item_out_of_his_products():
     profile = SellerProfile(categories=["fire extinguisher"], ignore_words=["refilling"])
     (result,) = CategoryMatchRule().evaluate(bid, profile, AT)
     assert "None of the items" in result.reason
+
+
+def test_gems_listing_deadline_wins_over_a_stale_pdf():
+    """Seen live on 12-Oct-2026: two PDFs said 12 Oct, GeM's listing said 13 Oct after an
+    extension. The listing is GeM's own current value, refreshed on every search."""
+    from datetime import timedelta
+
+    bid = _bid(bid_end=(AT - timedelta(days=1)).isoformat())
+    assert [r.outcome.value for r in DeadlineRule().evaluate(bid, None, AT)] == ["NEEDS_REVIEW"]
+    extended = bid.model_copy(update={"listed_end": AT + timedelta(days=1)})
+    assert DeadlineRule().evaluate(extended, None, AT) == []
+    assert extended.deadline() == AT + timedelta(days=1)
