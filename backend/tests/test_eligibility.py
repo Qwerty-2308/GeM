@@ -9,7 +9,7 @@ import pytest
 from gem_assistant.domain.models import (
     BidAnalysis, Evidence, ExtractedField, ExtractionMethod, FieldStatus, SellerProfile,
 )
-from gem_assistant.eligibility.rules import EmdRule, TurnoverExperienceRule, inr
+from gem_assistant.eligibility.rules import CategoryMatchRule, EmdRule, TurnoverExperienceRule, inr
 
 AT = datetime(2026, 10, 11, tzinfo=timezone.utc)
 
@@ -86,3 +86,15 @@ def test_emd_reason_shows_the_amount():
 ])
 def test_inr_uses_indian_digit_grouping(rupees, text):
     assert inr(rupees) == text
+
+
+@pytest.mark.parametrize("category, item, matches", [
+    ("Chairs", "Office Chair", True),                       # plural in the profile, singular in the bid
+    ("fire extinguisher", "Portable Fire Extinguishers (V3)", True),
+    ("Pen", "Open Racks For Office", False),                # not a word in the bid, only letters inside one
+    ("office chair", "Office Table,Visitor Chair", True),   # both words, not side by side
+    ("fire extinguisher", "Fire Retardant Tarpaulin", False),
+])
+def test_category_match_compares_whole_words(category, item, matches):
+    results = CategoryMatchRule().evaluate(_bid(item_category=item), SellerProfile(categories=[category]), AT)
+    assert (results == []) is matches

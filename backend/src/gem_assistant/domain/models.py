@@ -2,10 +2,25 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field, model_validator
+
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _stems(text: str) -> set[str]:
+    # ponytail: drops one trailing "s" only; "boxes" vs "box" still differ. Add a stemmer if it bites.
+    return {w.removesuffix("s") for w in _WORD.findall(text.lower())}
+
+
+def mentions(text: str | None, keyword: str) -> bool:
+    """Every word of `keyword` is a word in `text`, ignoring case and a plural s.
+    "pen" is not in "Open Racks"; "chairs" is in "Office Chair"."""
+    words = _stems(keyword)
+    return bool(words) and words <= _stems(text or "")
 
 
 class FieldStatus(str, Enum):

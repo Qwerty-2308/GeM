@@ -184,6 +184,24 @@ def test_downloads_per_run_are_capped(app, transport, source, settings):
     assert len(transport.calls) == settings.discovery.max_downloads_per_run
 
 
+def test_only_bids_that_mention_a_category_are_downloaded(app, transport, source):
+    """GeM's search matches loosely: a search for "pump" also returns tarpaulins. Downloads
+    are capped, so spending them on items the seller does not sell hides the ones he does."""
+    source.docs = [
+        make_doc(1, b_category_name=["Fire Retardant Tarpaulin"], final_end_date_sort="2025-11-10T12:00:00Z"),
+        make_doc(2, b_category_name=["Hose Pipe,Fire Bucket,Sand Bag,Safety Helmet,Rechargeable Headlamp,Fi"],
+                 bd_category_name=["Hose Pipe,Fire Bucket,Sand Bag,Safety Helmet,Rechargeable Headlamp,Fire Pumps"],
+                 final_end_date_sort="2025-11-20T12:00:00Z"),
+    ]
+    _queue_pdf(transport)
+    run = app.discovery.run()
+    assert run.outcome == "ok", run.message
+    assert [u for u, _ in transport.calls] == ["https://bidplus.gem.gov.in/showbidDocument/9000002"]
+    skipped = next(e for e in app.discovery.status().listings if e.doc_id == "9000001")
+    assert skipped.doc_status is DocStatus.PENDING  # a later category can still pick it up
+    assert "categories" in skipped.doc_note
+
+
 # ---------- fetch by link ----------
 
 @pytest.mark.parametrize("link", [

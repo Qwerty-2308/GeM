@@ -51,6 +51,17 @@ def _text(value: Any) -> str | None:
     return text or None
 
 
+def _items(short: str | None, full: str | None) -> str | None:
+    """b_category_name names each item once but stops at 99 characters; bd_category_name
+    repeats every line item and stops at 1024. Merge them so an item past either cut
+    still counts when matching the seller's categories."""
+    first = [p.strip() for p in (short or "").split(",") if p.strip()]
+    rest = [p.strip() for p in (full or "").split(",") if p.strip()]
+    if first and any(p != first[-1] and p.startswith(first[-1]) for p in rest):
+        first.pop()  # the item the 99-character cut sliced in half
+    return ",".join(dict.fromkeys(first + rest)) or None
+
+
 def _int(value: Any) -> int | None:
     value = _first(value)
     try:
@@ -111,7 +122,7 @@ def _parse_doc(doc: Any) -> ListingBid | None:
     kind = BidKind.RA if bid_type in RA_TYPES else BidKind.BID
     doc_path = RA_TYPES.get(bid_type, "showbidDocument")
 
-    category = _text(doc.get("b_category_name"))
+    category = _items(_text(doc.get("b_category_name")), _text(doc.get("bd_category_name")))
     boq = _text(doc.get("bbt_title"))
     if category and boq:
         category = f"{category} ({boq})"

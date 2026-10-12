@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from typing import Callable, Sequence
 
 from ..config import DiscoverySettings
-from ..domain.models import CorrigendumStatus, DiscoveryRun, ListingEntry
+from ..domain.models import CorrigendumStatus, DiscoveryRun, DocStatus, ListingEntry, mentions
 from ..domain.ports import (
     Clock, CorrigendumWriter, DiscoveryRunStore, ListingRepository, ListingSource, ProfileReader,
 )
@@ -186,8 +186,17 @@ class DiscoveryService:
             run.found += len(result.bids)
             run.new += len(self._listings.upsert(result.bids, result.keyword, now))
 
+        # GeM's search matches loosely ("office chair" also returns photo paper), and
+        # downloads are capped: spend them only on bids naming one of the categories.
+        wanted: list[ListingEntry] = []
+        for entry in self._listings.pending_downloads(10_000, now):
+            if any(mentions(entry.category, k) for k in run.keywords):
+                wanted.append(entry)
+            else:  # stays pending, so a category added later can still pick it up
+                self._listings.mark(entry.doc_id, DocStatus.PENDING, "Doesn't name any of your categories")
+
         analysed: dict[str, int] = {}  # doc_id -> bid_id, for the corrigendum pass
-        for entry in self._listings.pending_downloads(self._settings.max_downloads_per_run, now):
+        for entry in wanted[: self._settings.max_downloads_per_run]:
             result = self._fetch.fetch_listing_entry(entry)  # safety stops propagate and end the run
             if result is not None:
                 if result.downloaded:

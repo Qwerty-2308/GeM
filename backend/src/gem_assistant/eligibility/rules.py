@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Callable
 
 from ..domain.models import (
-    BidAnalysis, CorrigendumStatus, FieldStatus, RuleResult, SellerProfile, Verdict,
+    BidAnalysis, CorrigendumStatus, FieldStatus, RuleResult, SellerProfile, Verdict, mentions,
 )
 from ..parsing.clause_patterns import DEFAULT_CLAUSE_PATTERNS
 
@@ -238,8 +238,8 @@ class CategoryMatchRule:
             return []
         haystack = " ".join(filter(None, [
             bid.found_value("item_category"), bid.found_value("relevant_categories"),
-        ])).lower()
-        if any(c.lower() in haystack for c in profile.categories):
+        ]))
+        if any(mentions(haystack, c) for c in profile.categories):
             return []
         field = bid.field("item_category")
         return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,

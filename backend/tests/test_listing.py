@@ -39,6 +39,16 @@ def test_parses_scalar_and_array_fields(arrays):
     assert bid.ends_at == datetime(2026, 10, 20, 15, 0, tzinfo=IST)
 
 
+def test_item_list_is_merged_from_the_short_and_the_full_field():
+    """GeM's b_category_name lists each item once but stops at 99 characters;
+    bd_category_name repeats every line item and stops at 1024. Neither is whole alone."""
+    doc = make_doc(1, b_category_name=["Office Table,Office Ch"],
+                   bd_category_name=["Office Table,Office Table,Office Chair,Visitor Chair"],
+                   bbt_title=["Office Infra"])
+    (bid,) = parse_listing_response(make_response([doc])).bids
+    assert bid.category == "Office Table,Office Chair,Visitor Chair (Office Infra)"
+
+
 def test_reverse_auctions_are_marked_ra():
     page = parse_listing_response(make_response([make_doc(1, bid_type=5), make_doc(2, bid_type=2)]))
     assert [b.kind for b in page.bids] == [BidKind.RA, BidKind.RA]
@@ -220,7 +230,7 @@ def test_full_discovery_run_with_real_browser(settings, clock, transport, tmp_pa
 
     from .conftest import SAMPLE_PDF
 
-    sample = make_doc(0, b_id=8506455, b_bid_number="GEM/2025/B/6819518",
+    sample = make_doc(0, b_id=8506455, b_bid_number="GEM/2025/B/6819518", b_category_name=["Clip Assy"],
                       final_end_date_sort="2025-11-14T12:00:00Z")
     gem = FakeGeM(
         ALL_BIDS_SHELL.read_bytes(),

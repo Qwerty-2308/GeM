@@ -1,13 +1,18 @@
 import { el, notice, formatDateTime } from "../dom.js";
 
 const STATUS_STYLE = {
-  PENDING: ["neutral", "Queued"],
+  PENDING: ["neutral", "Not analysed"],
   DOWNLOADED: ["ok", "Analysed"],
   FAILED: ["bad", "Failed"],
   SKIPPED: ["neutral", "Skipped"],
 };
 
 const OUTCOME_STYLE = { ok: "ok", stopped: "bad", failed: "bad" };
+
+// GeM lists every item of a bid; the full text stays in the tooltip.
+function clip(text, max = 140) {
+  return text && text.length > max ? `${text.slice(0, max)}…` : text;
+}
 
 function docBadge(status) {
   const [cls, text] = STATUS_STYLE[status] || ["neutral", status];
@@ -96,7 +101,7 @@ export async function renderDiscover(container, _params, api) {
         el("tbody", {}, status.listings.map((item) =>
           el("tr", item.bid_id ? { class: "clickable", onclick: () => { location.hash = `#/bids/${item.bid_id}`; } } : {},
             el("td", {}, el("strong", {}, item.bid_number), item.kind === "RA" ? el("span", { class: "subtle" }, " (RA)") : null),
-            el("td", {}, item.category || "—"),
+            el("td", { title: item.category }, clip(item.category) || "—"),
             el("td", {}, item.department || item.ministry || "—"),
             el("td", {}, formatDateTime(item.ends_at)),
             el("td", {}, docBadge(item.doc_status), item.doc_note ? el("div", { class: "hint" }, item.doc_note) : null),
