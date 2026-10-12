@@ -122,6 +122,7 @@ purpose.
 - The page's automatic "show all bids" search on load is blocked too, so each keyword costs exactly one request per results page.
 - Results are read from the JSON response, not the screen. The parser accepts both plain values and one-item arrays and stops (instead of guessing) if the shape changes.
 - The browser's temporary cookies are discarded after each search.
+- GeM's search matches loosely: "office chair" also returns photo paper and manpower services. So only bids whose item list contains every word of one of your categories are downloaded; a plural "s" is ignored. Every other bid is still listed, marked "Not analysed" with the reason, and a category you add later can still pick it up.
 
 **The listing response** was captured live on 11-Oct-2026 and is pinned as a test fixture (`tests/fixtures/all-bids-data_2026-10-11.json`): every field arrives as a one-element list, as the parser expected. Each search still saves the last response to `<data folder>/recon/last-listing-response.json`; if GeM changes the shape, the search stops with `ListingFormatChanged` instead of guessing.
 
