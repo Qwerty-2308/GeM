@@ -97,6 +97,19 @@ def test_what_to_look_for_saves_products_ignored_words_and_order(live_app, page)
         ["fire extinguisher", "office chair"], ["refilling", "AMC"], "closing")
 
 
+def test_what_he_is_typing_survives_the_end_of_a_search(live_app, page):
+    """The page redraws itself when a search ends; unsaved text must still be there."""
+    base, container = live_app
+    container.discovery._lock.acquire()  # a search is running
+    page.goto(base + "/#/discover")
+    page.wait_for_selector("text=Searching…")
+    page.fill("#products", "fire extinguisher")
+    page.select_option("#bid-order", "closing")
+    container.discovery._lock.release()  # ...and ends
+    page.wait_for_selector("text=Search GeM now")
+    assert (page.input_value("#products"), page.input_value("#bid-order")) == ("fire extinguisher", "closing")
+
+
 def test_closed_bids_are_hidden_until_asked_for(live_app, page):
     """The sample bid closed in 2025: by default the list shows only bids he can still quote on."""
     from .conftest import SAMPLE_PDF

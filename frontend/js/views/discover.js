@@ -191,8 +191,15 @@ function poll(container, api) {
       const status = await api.getDiscovery();
       if (!status.running) {
         delete container.dataset.polling;
+        // Redraw for the results, but keep whatever he was typing and hadn't saved yet.
+        const typed = [...container.querySelectorAll("textarea[id], select[id], input[type=email][id]")]
+          .map((field) => [field.id, field.value]);
         container.replaceChildren();
         await renderDiscover(container, {}, api);
+        for (const [id, value] of typed) {
+          const field = container.querySelector(`#${id}`);
+          if (field) field.value = value;
+        }
         return;
       }
     } catch { /* keep polling */ }
