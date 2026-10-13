@@ -175,6 +175,56 @@ def test_structured_no_vs_clause_becomes_conflicting():
     assert "page 4" in result.note
 
 
+def test_gems_standard_wording_raises_no_flag():
+    """Sentences GeM puts in every bid that carries them set no requirement of their own; 11 of 20
+    'grounds for rejection' flags on the real corpus were the first one. The buyer's own line stays."""
+    section = (
+        "/Buyer Added Bid Specific Terms and Conditions\n"
+        "Certificates Bidder's offer is liable to be rejected if they don't upload any of the certificates / "
+        "documents sought in the Bid document, ATC and Corrigendum if any. "
+        "In case the date of constitution / incorporation of the bidder is less than 3 year old, the average "
+        "turnover in respect of the completed financial years after the date of constitution shall be taken "
+        "into account for this criteria. "
+        "Documentary evidence in the form of certified Audited Balance Sheets of relevant periods or a "
+        "certificate from the Chartered Accountant / Cost Accountant indicating the turnover details for the "
+        "relevant period shall be uploaded with the bid. "
+        "Any other document in support of contract execution like Third Party Inspection release note, "
+        "etc.Proof for Past Experience and Project Experience clause: For fulfilling the experience criteria "
+        "any one of the following documents may be considered as valid proof for meeting the experience "
+        "criteria:a. Copy of contract. "
+        "Bidders from outside Delhi will not be considered.\n/Disclaimer")
+    flags = PatternClauseScanner().scan([PageText(number=3, text=section)])
+    assert [f.evidence.quote for f in flags] == ["Bidders from outside Delhi will not be considered."]
+
+
+def _emd_no_against(field_name: str, category: str, quote: str) -> ExtractedField:
+    ev = Evidence(page=1, quote="/EMD Detail /Required No", method=ExtractionMethod.LABEL_PARSE)
+    field = ExtractedField(name=field_name, label=field_name, status=FieldStatus.FOUND, value="No", evidence=ev)
+    flag = ClauseFlag(category=category, label=category,
+                      evidence=Evidence(page=4, quote=quote, method=ExtractionMethod.PATTERN_SCAN))
+    (result,) = RuleBasedReconciler().reconcile([field], [flag])
+    return result
+
+
+@pytest.mark.parametrize("field_name, category, quote", [
+    ("emd_required", "emd", "Forms of EMD and PBG: Bidders can also submit the EMD with Account Payee "
+                            "Demand Draft in favour of the Buyer payable at Pune."),
+    ("epbg_required", "performance_security", "Successful Bidder can submit the Performance Security in the "
+                                              "form of Account Payee Demand Draft also."),
+    ("emd_required", "emd", "EMD Exemption: The bidder seeking EMD exemption, must submit the valid supporting "
+                            "document for the relevant category as per GeM GTC with the bid."),
+])
+def test_a_clause_that_only_explains_emd_is_no_conflict(field_name, category, quote):
+    """GeM's 'Forms of EMD and PBG' wording says how EMD could be paid, not that it must be:
+    it made all 7 EMD/ePBG 'conflicts' on the real corpus."""
+    assert _emd_no_against(field_name, category, quote).status is FieldStatus.FOUND
+
+
+def test_an_amount_makes_it_a_demand_even_when_worded_as_an_option():
+    result = _emd_no_against("emd_required", "emd", "Bidders can submit EMD of Rs 50,000 by DD.")
+    assert result.status is FieldStatus.CONFLICTING
+
+
 def test_non_pdf_is_rejected():
     with pytest.raises(InvalidPdf):
         PypdfTextExtractor(max_pages=300).extract(b"<html>not a pdf</html>")

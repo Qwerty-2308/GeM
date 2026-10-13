@@ -41,5 +41,15 @@ DEFAULT_CLAUSE_PATTERNS: tuple[ClausePattern, ...] = (
     clause("penalty", "Penalty or extra charges", r"\b(penalty|liquidated damages|demurrage)\b"),
 )
 
+# GeM's own standard sentences, the same in every bid that carries them. They set no requirement
+# of their own (the turnover and experience figures sit in the bid form, which the field rules
+# read), so they raise no flag. Keep this to wording that only explains or lists documents.
+GEM_STANDARD_WORDING = re.compile(
+    r"liable to be rejected if they don'?t upload any of the certificates"
+    r"|date of constitution\s*/\s*incorporation of the bidder is less than"
+    r"|documentary evidence in the form of certified audited balance sheets"
+    r"|any one of the following documents may be considered as valid proof",
+    re.IGNORECASE)
+
 # Means the buyer attached a separate ATC file that this tool has not read.
 ATTACHMENT_MARKER = re.compile(r"Buyer uploaded ATC document", re.IGNORECASE)

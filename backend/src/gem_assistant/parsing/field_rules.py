@@ -15,7 +15,7 @@ from . import normalizers as n
 
 # Bump whenever field rules, clause patterns or conflict checks change: stored bids analysed
 # by an older version are re-read from their kept PDF on the next start.
-PARSER_VERSION = 2
+PARSER_VERSION = 3  # 3: GeM's standard wording raises no flag; explaining EMD is no conflict
 
 # Matches the whitespace/newlines pypdf puts between label words.
 _ = r"\s+"
