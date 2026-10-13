@@ -1,6 +1,6 @@
 # GeM Assistant
 
-A local, read-only tool that analyses GeM bid documents against your seller
+A chat assistant (on one Mac, or as a password-protected website) that finds and analyses GeM bid documents against your seller
 profile and shows evidence (page and exact quote) for every value. Design
 rationale lives in `../docs/00-RESEARCH-AND-ARCHITECTURE.md`.
 
@@ -70,6 +70,45 @@ Stop it with Ctrl-C. If the app's server is already running, `serve` just opens 
 To remove the app: `launchctl bootout gui/$(id -u)/local.gem-assistant.server`, then delete
 `~/Library/LaunchAgents/local.gem-assistant.server.plist` and `~/Applications/GeM Assistant.app`.
 After moving the project folder, run `install-app` again.
+
+## Run it as a website
+
+A chat at your own web address, on your Groq key, behind one password. The image in
+`Dockerfile` runs anywhere that runs Docker with a disk that survives restarts, mounted at
+`/data` (the database, kept bid PDFs and logins live there).
+
+**Pick a server in India** (Mumbai or Bangalore). GeM sits behind a firewall that may treat
+data-centre addresses as suspicious; an Indian one is the better bet, and the first thing to
+check after deploying (below).
+
+Set these as the host's secrets, never in the code:
+
+| Secret | What |
+|---|---|
+| `GEM_PASSWORD` | the login, 12 or more characters; changing it logs everyone out |
+| `GROQ_API_KEY` | your Groq key; the chat's cost goes on your account |
+| `GEM_CONTACT_EMAIL` | sent to GeM with every request, so GeM can reach you instead of blocking |
+
+Run **exactly one copy**: the data is one SQLite file, and GeM's request limits are counted in it.
+
+Example, Fly.io in Mumbai (from the repository root):
+
+```bash
+fly launch --no-deploy --region bom          # finds the Dockerfile; set internal_port = 8080
+fly volumes create gem_data --region bom --size 1
+#   then in fly.toml:  [mounts]  source = "gem_data"  destination = "/data"
+fly secrets set GEM_PASSWORD='...' GROQ_API_KEY='...' GEM_CONTACT_EMAIL='...'
+fly deploy
+fly scale count 1
+```
+
+**First check after deploying:** log in and ask the chat to search for one of his products.
+If it reports that fetching stopped (a 403 or a block page), GeM refuses that server's address.
+Then run the same image on a computer at home and publish it with Cloudflare Tunnel or
+Tailscale Funnel: same kind of web address, and GeM sees a home connection, which has worked.
+
+Without Docker: `GEM_PASSWORD=... uv run gem-assistant serve --host 0.0.0.0 --port 8080 --no-open`
+behind any HTTPS proxy (the login cookie is HTTPS-only).
 
 ## Your data
 
@@ -149,6 +188,7 @@ purpose.
 | Bid PDFs kept; stored bids re-read when the rules improve | done; automatic on `serve` |
 | Mac app (`install-app`): icon opens the page; server runs in the background from login | done; checked on a Mac: survives the icon quitting, restarts after a crash |
 | Chat (Groq) as the only screen; the pipeline as its tools | built and tested with a scripted model; **not yet run against Groq itself** (needs the key) |
+| Website mode (`--host 0.0.0.0`, `Dockerfile`): password login, signed cookies | built; image built and checked in CI; **not yet deployed**, so GeM from a server is untested |
 | LLM reading of free-text ATC, ATC attachments | later |
 
 ## How bid search works
@@ -267,3 +307,6 @@ backend/tests/            283 tests, incl. four real bid PDFs (2025 + 2026), a r
 - Any 401/403/429, 5xx, redirect, CAPTCHA or block page trips the breaker. It stays tripped across restarts until a person resets it on the Safety page.
 - No automatic retries, no proxies, no IP rotation.
 - The web server binds to 127.0.0.1 and rejects other hosts and cross-site POSTs.
+- As a website (`--host 0.0.0.0`) it refuses to start without `GEM_PASSWORD` (12+ characters); every
+  API call then needs the login (signed, HttpOnly, Secure, SameSite=Strict cookie, 30 days), a wrong
+  password costs a second, and writes from other sites are refused.

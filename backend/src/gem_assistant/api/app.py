@@ -7,7 +7,8 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..container import Container
-from .routes import bids, chat, discovery, profile, safety
+from .auth import COOKIE, Sessions
+from .routes import bids, chat, discovery, profile, safety, session
 
 LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost"})
 
@@ -44,17 +45,42 @@ async def _local_only(request: Request, call_next, allowed_hosts: frozenset[str]
     return await call_next(request)
 
 
-def create_app(container: Container, allowed_hosts: frozenset[str] = LOCAL_HOSTS) -> FastAPI:
+_OPEN_API = frozenset({"/api/session", "/api/login", "/api/logout"})
+
+
+async def _logged_in_only(request: Request, call_next, sessions: Sessions):
+    # Website mode: any host name may reach this server, so the guard is the login. Writes must
+    # come from this site's own pages (the session cookie is also SameSite=Strict).
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        origin = request.headers.get("origin")
+        if origin is not None and _host_only(origin) != _host_only(request.headers.get("host", "")):
+            return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
+    path = request.url.path
+    if path.startswith("/api/") and path not in _OPEN_API and not sessions.valid(request.cookies.get(COOKIE)):
+        return JSONResponse({"detail": "Log in first."}, status_code=401)
+    return await call_next(request)
+
+
+def create_app(container: Container, allowed_hosts: frozenset[str] = LOCAL_HOSTS,
+               sessions: Sessions | None = None) -> FastAPI:
+    """On this computer (default): no login, local requests only. With `sessions`: a website,
+    every API call needs a login."""
     # No Swagger/ReDoc pages: they load scripts from a CDN. The OpenAPI JSON stays.
     app = FastAPI(title="GeM Assistant", docs_url=None, redoc_url=None, openapi_url="/api/openapi.json")
     app.state.container = container
+    app.state.sessions = sessions
+    headers = {**SECURITY_HEADERS, **({"Strict-Transport-Security": "max-age=31536000"} if sessions else {})}
 
     @app.middleware("http")
-    async def local_only(request: Request, call_next):
-        response = await _local_only(request, call_next, allowed_hosts)
-        response.headers.update(SECURITY_HEADERS)
+    async def guard(request: Request, call_next):
+        if sessions is None:
+            response = await _local_only(request, call_next, allowed_hosts)
+        else:
+            response = await _logged_in_only(request, call_next, sessions)
+        response.headers.update(headers)
         return response
 
+    app.include_router(session.router)
     app.include_router(bids.router)
     app.include_router(profile.router)
     app.include_router(safety.router)

@@ -36,11 +36,21 @@ def chat_app(settings, clock, transport):
     yield from _serve(Container.build(settings, clock=clock, transport=transport, chat_model=model))
 
 
-def _serve(container):
+@pytest.fixture
+def web_app(settings, clock, transport):
+    """Served as a website: a password first."""
+    from gem_assistant.api.auth import Sessions
+
+    yield from _serve(Container.build(settings, clock=clock, transport=transport),
+                      Sessions("correct horse battery", b"s" * 32))
+
+
+def _serve(container, sessions=None):
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
-    server = uvicorn.Server(uvicorn.Config(create_app(container), host="127.0.0.1", port=port, log_level="warning"))
+    server = uvicorn.Server(uvicorn.Config(create_app(container, sessions=sessions), host="127.0.0.1", port=port,
+                                           log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     while not server.started:
@@ -157,3 +167,16 @@ def test_a_fresh_install_says_what_to_set_up_first(live_app, page, monkeypatch):
     page.goto(base + "/")
     page.wait_for_selector("text=set-groq-key")
     page.wait_for_selector("#contact-email")  # GeM needs to be able to reach him before any search
+
+
+def test_the_website_asks_for_the_password_first(web_app, page):
+    base, _ = web_app
+    page.goto(base + "/")
+    page.fill("#password", "a wrong guess")
+    page.click("text=Log in")
+    page.wait_for_selector("text=Wrong password")
+    page.fill("#password", "correct horse battery")
+    page.click("text=Log in")
+    page.wait_for_selector("#chat-input")
+    page.click("text=Log out")
+    page.wait_for_selector("#password")

@@ -87,6 +87,7 @@ class Settings:
     safety: SafetySettings = field(default_factory=SafetySettings)
     discovery: DiscoverySettings = field(default_factory=DiscoverySettings)
     groq_model: str = "openai/gpt-oss-120b"  # production on Groq, tool use, 131k context
+    password: str | None = field(default=None, repr=False)  # website mode only (GEM_PASSWORD)
 
     @property
     def groq_key_file(self) -> Path:
@@ -130,4 +131,5 @@ class Settings:
             safety=safety,
             discovery=discovery,
             groq_model=os.environ.get("GROQ_MODEL") or cls.groq_model,
+            password=os.environ.get("GEM_PASSWORD") or None,
         )

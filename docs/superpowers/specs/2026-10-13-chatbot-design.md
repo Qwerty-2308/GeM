@@ -33,3 +33,14 @@ machine" rule, by the owner's choice of a hosted model.
 Groq adapter against `httpx.MockTransport`; tools against the real container; the tool loop and the API
 with a scripted fake model, including a bid whose text tells the model to change the profile (nothing
 may be saved); one browser test: ask, get a reply and a card, confirm a profile proposal.
+
+## Addendum 2026-10-14: as a website
+
+Owner: "i wanted it to be accessible in a website, the groq api key is going to be mine, in a chat bot interface."
+
+| # | Decision | Why |
+|---|---|---|
+| D8 | `serve --host 0.0.0.0` is website mode; it refuses to start without `GEM_PASSWORD` (12+ chars). Every `/api` call then needs a login: a stdlib-signed cookie (`<expiry>.<hmac>`, HttpOnly, Secure, SameSite=Strict, 30 days) whose signature covers a hash of the password, so changing it logs everyone out. A wrong password costs 1 s. The host-name allowlist gives way to the login; writes must come from the same origin. | On the open internet anyone could otherwise spend the owner's Groq key, read the seller's data and send GeM requests under his email. |
+| D9 | One seller, one password. | The data model has one profile. Several sellers means per-user data: a separate change. |
+| D10 | A `Dockerfile` (Python 3.12 slim, uv-locked deps, Playwright Chromium, data at `/data`, secrets only from env, exactly one copy). CI builds it, launches Chromium inside it and checks the login. | Deployable on any Docker host. |
+| D11 | Deploy in India; the first post-deploy check is one real GeM search from the server. If GeM refuses data-centre addresses, run the same image at home behind Cloudflare Tunnel or Tailscale Funnel. | GeM's WAF on data-centre IPs is untested (architecture doc §4.9, §14). |

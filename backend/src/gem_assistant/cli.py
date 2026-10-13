@@ -35,6 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     serve = sub.add_parser("serve", help="start the local web app")
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--no-open", action="store_true", help="don't open the browser")
+    serve.add_argument("--host", default="127.0.0.1",
+                       help="0.0.0.0 serves it as a website; then GEM_PASSWORD (12+ characters) is required")
 
     imp = sub.add_parser("import", help="analyse a local bid PDF")
     imp.add_argument("pdf", type=Path)
@@ -61,6 +63,15 @@ def main(argv: list[str] | None = None) -> int:
         return _install_app(Settings.from_env().data_dir)
     if args.command == "set-groq-key":
         return _set_groq_key(Settings.from_env())
+    sessions = None
+    if args.command == "serve" and args.host not in ("127.0.0.1", "localhost", "::1"):
+        settings = Settings.from_env()
+        if not settings.password or len(settings.password) < 12:
+            print("Serving it as a website needs a login password of 12 or more characters in GEM_PASSWORD.")
+            return 2
+        from .api.auth import Sessions, load_or_create_secret
+
+        sessions = Sessions(settings.password, load_or_create_secret(settings.data_dir / "session-secret.txt"))
     if args.command == "serve" and _already_running(args.port):
         url = f"http://127.0.0.1:{args.port}/"
         print(f"GeM Assistant is already running at {url}")
@@ -77,8 +88,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if not args.no_open:
             _open_browser_later(f"http://127.0.0.1:{args.port}/")
-        # 127.0.0.1 only: never reachable from other machines on the network.
-        uvicorn.run(create_app(container), host="127.0.0.1", port=args.port)
+        # By default 127.0.0.1 only: never reachable from other machines. As a website, every
+        # API call needs a login (sessions).
+        uvicorn.run(create_app(container, sessions=sessions), host=args.host, port=args.port)
         return 0
 
     if args.command == "reanalyse":

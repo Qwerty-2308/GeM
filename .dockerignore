@@ -1,0 +1,16 @@
+# Only the app goes into the image: no environments, tests (they hold real bid PDFs),
+# history, data or secrets.
+.git
+.github
+.superpowers
+docs
+**/.venv
+**/.venv.nosync
+**/__pycache__
+**/.pytest_cache
+backend/tests
+data
+*.sqlite3
+groq-api-key.txt
+session-secret.txt
+contact-email.txt
