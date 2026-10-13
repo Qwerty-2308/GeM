@@ -241,6 +241,17 @@ def test_found_list_puts_his_products_first_and_says_how_much_is_his(app, transp
     assert listed == [("9000004", 1, 1), ("9000003", 1, 4), ("9000006", 0, 1)]
 
 
+def test_every_product_counts_not_just_the_searched_ones(app, transport, source):
+    """Only 5 products are searched, but a bid found by one of them may hold his 6th."""
+    app.profiles.save(SellerProfile(categories=["volley ball", "table", "chair", "almirah", "tarpaulin",
+                                                "fire extinguisher"]))
+    source.docs = [FOCUSED_DOC]
+    _queue_pdf(transport)
+    app.discovery.run()
+    assert _downloaded_ids(transport) == ["9000004"]
+    assert [e.matched_items for e in app.discovery.status().listings] == [1]
+
+
 def test_a_bid_shows_gems_current_deadline_from_the_latest_search(app, transport, source, clock):
     """The PDF keeps the original deadline; the listing carries any extension."""
     _queue_pdf(transport)

@@ -122,10 +122,8 @@ def _parse_doc(doc: Any) -> ListingBid | None:
     kind = BidKind.RA if bid_type in RA_TYPES else BidKind.BID
     doc_path = RA_TYPES.get(bid_type, "showbidDocument")
 
+    # Items only: the bid title (bbt_title) often repeats an item, and glued on it counted twice.
     category = _items(_text(doc.get("b_category_name")), _text(doc.get("bd_category_name")))
-    boq = _text(doc.get("bbt_title"))
-    if category and boq:
-        category = f"{category} ({boq})"
 
     return ListingBid(
         doc_id=doc_id,

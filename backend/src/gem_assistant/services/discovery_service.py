@@ -100,19 +100,19 @@ class DiscoveryService:
             keywords=self.keywords(),
             last_run=self._runs.last(),
             next_allowed_at=self.next_allowed_at(),
-            listings=self._ranked(self._listings.recent(100), self._profiles.get(), self.keywords()),
+            listings=self._ranked(self._listings.recent(100), self._profiles.get()),
             settings=self._settings,
         )
 
     @staticmethod
-    def _ranked(entries: list[ListingEntry], profile: SellerProfile | None,
-                keywords: Sequence[str]) -> list[ListingEntry]:
+    def _ranked(entries: list[ListingEntry], profile: SellerProfile | None) -> list[ListingEntry]:
         """His products first: by share of the bid that is his ("match") or by closing
-        time ("closing"), then everything else in the order given."""
-        ignore = profile.ignore_words if profile else []
+        time ("closing"), then everything else in the order given. All his products count,
+        not just the few that are searched for."""
+        products, ignore = (profile.categories, profile.ignore_words) if profile else ([], [])
         scored = []
         for entry in entries:
-            hits, total = item_match(entry.category, keywords, ignore)
+            hits, total = item_match(entry.category, products, ignore)
             scored.append(entry.model_copy(update={"matched_items": hits, "total_items": total}))
         if profile is None or profile.bid_order == "match":
             key = lambda e: (not e.matched_items, -e.matched_items / max(e.total_items, 1))  # noqa: E731
@@ -204,7 +204,7 @@ class DiscoveryService:
 
         # GeM's search matches loosely ("office chair" also returns photo paper), and
         # downloads are capped: spend them on bids made of his products, in his order.
-        ranked = self._ranked(self._listings.pending_downloads(10_000, now), self._profiles.get(), run.keywords)
+        ranked = self._ranked(self._listings.pending_downloads(10_000, now), self._profiles.get())
         wanted = [e for e in ranked if e.matched_items]
         for entry in ranked:
             if not entry.matched_items:  # stays pending, so a product added later can still pick it up

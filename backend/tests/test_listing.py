@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from gem_assistant.domain.models import BidKind, CorrigendumStatus, DocStatus
+from gem_assistant.domain.models import BidKind, CorrigendumStatus, DocStatus, item_match
 from gem_assistant.infrastructure.browser_listing import PlaywrightListingSource
 from gem_assistant.infrastructure.database import Database
 from gem_assistant.infrastructure.sqlite_repositories import SqliteListingRepository
@@ -46,7 +46,16 @@ def test_item_list_is_merged_from_the_short_and_the_full_field():
                    bd_category_name=["Office Table,Office Table,Office Chair,Visitor Chair"],
                    bbt_title=["Office Infra"])
     (bid,) = parse_listing_response(make_response([doc])).bids
-    assert bid.category == "Office Table,Office Chair,Visitor Chair (Office Infra)"
+    assert bid.category == "Office Table,Office Chair,Visitor Chair"
+
+
+def test_bid_title_is_not_counted_as_an_item():
+    """GeM's bid title often repeats the first item ("PLYWOOD GEN PURPOSE"). Glued onto the
+    last item it made a plywood-and-adhesive bid look all plywood."""
+    doc = make_doc(1, b_category_name=["Plywood,Adhesive"], bd_category_name=["Plywood,Adhesive"],
+                   bbt_title=["Plywood"])
+    (bid,) = parse_listing_response(make_response([doc])).bids
+    assert item_match(bid.category, ["plywood"]) == (1, 2)
 
 
 def test_reverse_auctions_are_marked_ra():
