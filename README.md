@@ -20,25 +20,43 @@ rationale lives in `../docs/00-RESEARCH-AND-ARCHITECTURE.md`.
    uv sync
    uv run playwright install chromium
    ```
-4. Make it an app (macOS):
+4. Give the chat its Groq API key (from console.groq.com; typed, not shown):
+   ```bash
+   uv run gem-assistant set-groq-key
+   ```
+   It is kept in the data folder (`groq-api-key.txt`, owner-only), never in this project, so it
+   can't end up in git. `GROQ_API_KEY` works too; `GROQ_MODEL` changes the model
+   (default `openai/gpt-oss-120b`).
+5. Make it an app (macOS):
    ```bash
    uv run gem-assistant install-app
    ```
    This adds **GeM Assistant** to `~/Applications` (find it in Launchpad; drag it to the Dock)
    and registers the app to run in the background from login. macOS shows a "Background
    Items Added" notice once; that's this. From now on he only double-clicks the icon.
-5. Open it and type your email in the box on the **Find bids** page, so every
-   request names someone GeM can reach. **Nothing is sent to GeM until it is set.** It is kept
-   in the data folder (`contact-email.txt`); `GEM_CONTACT_EMAIL` works too, but the app's value wins.
-6. On **Find bids**, fill in *What to look for*: the products you sell, words to ignore
-   (refilling, repair, AMC…), and whether bids made mostly of your products or bids closing
-   soonest come first. Then fill in turnover and experience on **Seller profile**.
+6. Open it. The first time it asks for an email, so every request names someone GeM can
+   reach. **Nothing is sent to GeM until it is set.** It is kept in the data folder
+   (`contact-email.txt`); `GEM_CONTACT_EMAIL` works too, but the app's value wins.
+7. Tell the chat what he sells ("I sell fire extinguishers and office chairs, turnover 50 lakh,
+   I'm an MSE"). It shows the profile change; he clicks **Confirm**.
 
 ## Run it
 
-Double-click **GeM Assistant**. It opens http://127.0.0.1:8000 in the browser; the server behind
-it is already running (it starts at login and again after a crash) and only listens on this
-computer. Its output goes to `app.log` in the data folder.
+Double-click **GeM Assistant**. It opens a chat at http://127.0.0.1:8000. He asks in Hindi,
+English or Hinglish: find bids, which close soon, what a bid needs. The chat runs the search,
+download, parsing and eligibility checks as tools and shows their results as cards: verdict,
+each reason, and the page and quote it came from. The figures in the cards come from the
+pipeline, not from the model's wording. The server behind it is already running (it starts at
+login and again after a crash) and only listens on this computer. Its output goes to `app.log`
+in the data folder.
+
+**What the chat sends to Groq:** what he types, and what the tools return: his products,
+turnover, experience, MSE status, and bid details including quoted clauses. Not the contact
+email, not the Groq key. The chat cannot reset the safety stop, change the contact email or
+fetch anything outside GeM, and profile changes it suggests wait for his click.
+
+The earlier pages (bid list, bid evidence, Safety) are no longer in a menu; chat cards link to
+them, and `#/bids`, `#/safety` still open them.
 
 Without the app (or on Linux):
 
@@ -130,6 +148,7 @@ purpose.
 | Turnover and experience requirements compared with the profile | done; blocks only on a clear shortfall no relaxation covers |
 | Bid PDFs kept; stored bids re-read when the rules improve | done; automatic on `serve` |
 | Mac app (`install-app`): icon opens the page; server runs in the background from login | done; checked on a Mac: survives the icon quitting, restarts after a crash |
+| Chat (Groq) as the only screen; the pipeline as its tools | built and tested with a scripted model; **not yet run against Groq itself** (needs the key) |
 | LLM reading of free-text ATC, ATC attachments | later |
 
 ## How bid search works
@@ -215,6 +234,8 @@ backend/src/gem_assistant/
   services/               use cases (import a PDF, list bids, profile, safety)
   infrastructure/         SQLite, httpx, pypdf, clock: adapters for the ports
   api/                    FastAPI routes + response schemas
+  services/chat_service.py + chat_tools.py   the chat's tool loop and the tools it may call
+  infrastructure/groq_chat.py         the only code that talks to Groq
   container.py            composition root: the only place that wires concrete classes
 backend/tests/            283 tests, incl. four real bid PDFs (2025 + 2026), a real /all-bids-data response and the saved /all-bids page
 (data lives in ~/Library/Application Support/GeM Assistant — see "Your data")

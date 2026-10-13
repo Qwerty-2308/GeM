@@ -17,3 +17,6 @@ __pycache__/
 
 # os
 .DS_Store
+
+# Secrets: the chat key lives in the data folder; never commit it if that folder is moved here
+groq-api-key.txt

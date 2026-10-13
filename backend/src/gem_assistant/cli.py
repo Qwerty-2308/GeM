@@ -8,11 +8,13 @@
     gem-assistant probe FOLDER       after corpus: do buyer attachments open without login?
     gem-assistant reanalyse          re-read stored bids with the current rules (serve does this too)
     gem-assistant install-app        macOS: a GeM Assistant app icon; the server runs from login
+    gem-assistant set-groq-key       store the Groq API key the chat uses
 """
 
 from __future__ import annotations
 
 import argparse
+import getpass
 import os
 import plistlib
 import socket
@@ -52,10 +54,13 @@ def main(argv: list[str] | None = None) -> int:
     probe.add_argument("folder", type=Path)
 
     sub.add_parser("install-app", help="make a double-clickable GeM Assistant app in ~/Applications (macOS)")
+    sub.add_parser("set-groq-key", help="store the Groq API key the chat uses (typed, not shown)")
 
     args = parser.parse_args(argv)
     if args.command == "install-app":
         return _install_app(Settings.from_env().data_dir)
+    if args.command == "set-groq-key":
+        return _set_groq_key(Settings.from_env())
     if args.command == "serve" and _already_running(args.port):
         url = f"http://127.0.0.1:{args.port}/"
         print(f"GeM Assistant is already running at {url}")
@@ -178,6 +183,21 @@ def _install_app(data_dir: Path) -> int:
     launcher.chmod(0o755)
     print(f"GeM Assistant now runs in the background from login (log: {log}).\n"
           f"Made {app}: open it from Finder or Launchpad, or drag it to the Dock.")
+    return 0
+
+
+def _set_groq_key(settings: Settings) -> int:
+    """The key goes in the data folder, owner-only: never in the project, so never in git."""
+    key = getpass.getpass("Groq API key (not shown as you type): ").strip()
+    if not key:
+        print("Nothing typed; the key was not changed.")
+        return 2
+    settings.data_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd = os.open(settings.groq_key_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(key + "\n")
+    os.chmod(settings.groq_key_file, 0o600)  # in case the file already existed with wider rights
+    print(f"Saved. The chat uses it from now on (stored in {settings.groq_key_file}).")
     return 0
 
 

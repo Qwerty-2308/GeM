@@ -23,7 +23,20 @@ pytestmark = browser_test
 def live_app(settings, clock, transport):
     """As freshly installed: no contact email anywhere."""
     settings = replace(settings, safety=replace(settings.safety, contact_email=PLACEHOLDER_CONTACT))
-    container = Container.build(settings, clock=clock, transport=transport)
+    yield from _serve(Container.build(settings, clock=clock, transport=transport))
+
+
+@pytest.fixture
+def chat_app(settings, clock, transport):
+    """The chat, with a model that proposes a product and then asks him to confirm it."""
+    from .test_chat import ScriptedModel, _calls, _says
+
+    model = ScriptedModel(_calls(("propose_profile_update", {"products": ["fire extinguisher"]})),
+                          _says("I've filled in your product. Please confirm it."))
+    yield from _serve(Container.build(settings, clock=clock, transport=transport, chat_model=model))
+
+
+def _serve(container):
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -38,7 +51,7 @@ def live_app(settings, clock, transport):
 
 
 @pytest.fixture
-def page(live_app):
+def page():
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
@@ -116,8 +129,31 @@ def test_closed_bids_are_hidden_until_asked_for(live_app, page):
 
     base, container = live_app
     container.bid_import.import_pdf(SAMPLE_PDF.read_bytes(), source_name="bid.pdf")
-    page.goto(base + "/#/")
+    page.goto(base + "/#/bids")
     page.wait_for_selector("text=1 closed bid hidden")
     assert page.locator("table tbody tr").count() == 0
     page.check("#show-closed")
     assert page.locator("table tbody tr").count() == 1
+
+
+def test_the_chat_is_the_only_screen_and_a_profile_change_waits_for_his_click(chat_app, page):
+    base, container = chat_app
+    page.goto(base + "/")
+    assert page.locator("nav a").count() == 0
+    page.fill("#chat-input", "I sell fire extinguishers")
+    page.click("text=Send")
+    page.wait_for_selector("text=Please confirm it.")
+    assert container.profiles.get() is None  # proposed, not saved
+    page.click("text=Confirm")
+    page.wait_for_selector("text=Saved")
+    assert container.profiles.get().categories == ["fire extinguisher"]
+    page.reload()
+    page.wait_for_selector("text=I sell fire extinguishers")  # the conversation is still there
+
+
+def test_a_fresh_install_says_what_to_set_up_first(live_app, page, monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    base, _ = live_app
+    page.goto(base + "/")
+    page.wait_for_selector("text=set-groq-key")
+    page.wait_for_selector("#contact-email")  # GeM needs to be able to reach him before any search

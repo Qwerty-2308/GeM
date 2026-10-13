@@ -51,6 +51,10 @@ export class ApiClient {
   getProfile() { return this.#request("/profile"); }
   saveProfile(profile) { return this.#json("PUT", "/profile", profile); }
 
+  // ---- chat ----
+  chatStatus() { return this.#request("/chat"); }
+  chat(messages) { return this.#json("POST", "/chat", { messages }); }
+
   // ---- safety ----
   getSafety() { return this.#request("/safety"); }
   setContactEmail(email) { return this.#json("PUT", "/safety/contact", { email }); }

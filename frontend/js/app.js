@@ -8,6 +8,7 @@ import { renderBidDetail } from "./views/bidDetail.js";
 import { renderProfile } from "./views/profile.js";
 import { renderSafety } from "./views/safety.js";
 import { renderDiscover } from "./views/discover.js";
+import { renderChat } from "./views/chat.js";
 
 const api = new ApiClient();
 const app = document.getElementById("app");
@@ -37,7 +38,10 @@ async function withErrors(view, container, params) {
   refreshSafetyPill();
 }
 
+// The chat is the app. The other pages are no longer in a menu; chat cards link to them for
+// full evidence and for resuming after a safety stop.
 new Router(app)
+  .register("/chat", (c, p) => withErrors(renderChat, c, p))
   .register("/bids", (c, p) => withErrors(renderBidList, c, p))
   .register("/bids/:id", (c, p) => withErrors(renderBidDetail, c, p))
   .register("/discover", (c, p) => withErrors(renderDiscover, c, p))

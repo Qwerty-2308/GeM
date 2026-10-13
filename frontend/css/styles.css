@@ -134,3 +134,18 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .stat { font-size: 26px; font-weight: 700; }
 ul.reasons { margin: 8px 0 0; padding-left: 18px; }
 ul.reasons li { margin-bottom: 8px; }
+
+/* ---- chat ---- */
+.brand { color: inherit; text-decoration: none; }
+.chat-log { display: flex; flex-direction: column; gap: 12px; padding-bottom: 140px; }
+.chat-log > .card, .chat-log > .table-wrap, .chat-log > div:not(.msg) { margin: 0; }
+.msg { max-width: 75%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; line-height: 1.45; }
+.msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.msg.bot { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.chat-form {
+  position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px;
+  background: var(--bg); border-top: 1px solid var(--border);
+}
+.chat-form textarea { width: 100%; min-height: 48px; max-width: 1068px; margin: 0 auto 8px; display: block; }
+.chat-form .row { max-width: 1068px; margin: 0 auto; }
+@media (max-width: 600px) { .msg { max-width: 90%; } }

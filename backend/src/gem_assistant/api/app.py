@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..container import Container
-from .routes import bids, discovery, profile, safety
+from .routes import bids, chat, discovery, profile, safety
 
 LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost"})
 
@@ -59,6 +59,7 @@ def create_app(container: Container, allowed_hosts: frozenset[str] = LOCAL_HOSTS
     app.include_router(profile.router)
     app.include_router(safety.router)
     app.include_router(discovery.router)
+    app.include_router(chat.router)
 
     frontend = container.settings.frontend_dir
     if frontend.is_dir():

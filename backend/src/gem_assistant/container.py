@@ -6,6 +6,7 @@ Container with a fake clock/transport instead of patching internals.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -17,6 +18,7 @@ from .eligibility.evaluator import EligibilityEvaluator
 from .infrastructure.database import Database
 from .infrastructure.document_store import FileDocumentStore
 from .infrastructure.browser_listing import PlaywrightListingSource, PlaywrightNetwork
+from .infrastructure.groq_chat import GroqChatModel
 from .infrastructure.httpx_transport import HttpxTransport
 from .infrastructure.pypdf_extractor import PypdfTextExtractor, pdf_links
 from .infrastructure.sqlite_repositories import (
@@ -40,6 +42,7 @@ from .safety.url_policy import UrlPolicy
 from .services.bid_fetch_service import BidFetchService
 from .services.bid_import_service import BidImportService
 from .services.bid_query_service import BidQueryService
+from .services.chat_service import ChatModel
 from .services.corpus_service import CorpusService
 from .services.discovery_service import DiscoveryService
 from .services.profile_service import ProfileService
@@ -57,11 +60,13 @@ class Container:
     bid_fetch: BidFetchService
     discovery: DiscoveryService
     corpus: CorpusService
+    chat_model: ChatModel
 
     @classmethod
     def build(cls, settings: Settings, clock: Clock | None = None,
               transport: HttpTransport | None = None,
-              listing_source_factory: Callable[[SafeFetcher], ListingSource] | None = None) -> "Container":
+              listing_source_factory: Callable[[SafeFetcher], ListingSource] | None = None,
+              chat_model: ChatModel | None = None) -> "Container":
         clock = clock or SystemClock()
         db = Database(settings.db_path)
         db.migrate()
@@ -166,4 +171,13 @@ class Container:
             bid_fetch=bid_fetch,
             discovery=discovery,
             corpus=corpus,
+            chat_model=chat_model or GroqChatModel(lambda: _groq_key(settings), settings.groq_model),
         )
+
+
+def _groq_key(settings: Settings) -> str | None:
+    """Read on every chat turn, so a key set while the app runs works at once."""
+    key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not key and settings.groq_key_file.exists():
+        key = settings.groq_key_file.read_text().strip()
+    return key or None

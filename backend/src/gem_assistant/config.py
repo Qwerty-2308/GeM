@@ -86,6 +86,12 @@ class Settings:
     max_pdf_pages: int = 300
     safety: SafetySettings = field(default_factory=SafetySettings)
     discovery: DiscoverySettings = field(default_factory=DiscoverySettings)
+    groq_model: str = "openai/gpt-oss-120b"  # production on Groq, tool use, 131k context
+
+    @property
+    def groq_key_file(self) -> Path:
+        """Set with `gem-assistant set-groq-key`; GROQ_API_KEY wins when set. Owner-only."""
+        return self.data_dir / "groq-api-key.txt"
 
     @property
     def recon_dir(self) -> Path:
@@ -123,4 +129,5 @@ class Settings:
             frontend_dir=Path(os.environ.get("GEM_FRONTEND_DIR", PROJECT_ROOT / "frontend")),
             safety=safety,
             discovery=discovery,
+            groq_model=os.environ.get("GROQ_MODEL") or cls.groq_model,
         )

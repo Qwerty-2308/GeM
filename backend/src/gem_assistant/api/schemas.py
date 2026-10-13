@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..domain.models import (
     BreakerState, ClauseFlag, Corrigendum, DiscoveryRun, ExtractedField, ListingEntry, RequestRecord,
@@ -108,6 +108,10 @@ class ResetIn(BaseModel):
 
 class FetchIn(BaseModel):
     link: str
+
+
+class ChatIn(BaseModel):
+    messages: list[dict] = Field(max_length=200)  # the server keeps only the recent ones anyway
 
 
 class FetchOut(BaseModel):
