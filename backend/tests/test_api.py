@@ -131,9 +131,96 @@ def test_serve_opens_the_app_in_the_browser(monkeypatch, tmp_path, args, opens):
     served, opened = [], []
     monkeypatch.setattr(uvicorn, "run", lambda app, host, port: served.append((host, port)))
     monkeypatch.setattr(cli, "_open_browser_later", opened.append)
+    monkeypatch.setattr(cli, "_already_running", lambda port: False)  # whatever this machine has on 8000
     assert cli.main(args) == 0
     assert served == [("127.0.0.1", 8000)]
     assert opened == (["http://127.0.0.1:8000/"] if opens else [])
+
+
+@pytest.mark.parametrize("no_open", [[], ["--no-open"]])
+def test_serve_opens_the_running_app_instead_of_starting_a_second(monkeypatch, tmp_path, no_open):
+    import socket
+
+    import uvicorn
+
+    from gem_assistant import cli
+
+    monkeypatch.setenv("GEM_DATA_DIR", str(tmp_path))
+    served, opened = [], []
+    monkeypatch.setattr(uvicorn, "run", lambda app, host, port: served.append(port))
+    monkeypatch.setattr(cli, "_open_browser_later", opened.append)
+    with socket.socket() as running:
+        running.bind(("127.0.0.1", 0))
+        running.listen()
+        port = running.getsockname()[1]
+        assert cli.main(["serve", "--port", str(port), *no_open]) == 0
+    assert (served, opened) == ([], [] if no_open else [f"http://127.0.0.1:{port}/"])
+
+
+@pytest.fixture
+def mac(monkeypatch, tmp_path):
+    """A pretend Mac: home in tmp_path, never run before, macOS's own commands recorded instead of run."""
+    import sys
+
+    calls = tmp_path / "calls"
+    calls.touch()
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name in ("launchctl", "open", "curl"):
+        (bin_dir / name).write_text(f'#!/bin/sh\necho "{name} $*" >> "{calls}"\n')
+        (bin_dir / name).chmod(0o755)
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("GEM_DATA_DIR", str(tmp_path / "Application Support" / "GeM Assistant"))
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    return tmp_path, calls
+
+
+def test_install_app_registers_the_server_to_run_in_the_background(mac):
+    """The server is a Login Item of its own: macOS ends whatever an app started when the app quits."""
+    import os
+    import plistlib
+    import sys
+    from pathlib import Path
+
+    from gem_assistant import cli
+
+    home, calls = mac
+    data = home / "Application Support" / "GeM Assistant"
+    assert cli.main(["install-app"]) == 0
+
+    agent = home / "Library" / "LaunchAgents" / "local.gem-assistant.server.plist"
+    job = plistlib.loads(agent.read_bytes())
+    command = Path(sys.executable).with_name("gem-assistant")  # this install's own command
+    assert os.access(command, os.X_OK)
+    assert job["ProgramArguments"] == [str(command), "serve", "--no-open"]
+    assert job["EnvironmentVariables"] == {"GEM_DATA_DIR": str(data)}  # the same data the install used
+    assert job["StandardOutPath"] == job["StandardErrorPath"] == str(data / "app.log")
+    assert job["RunAtLoad"] and job["KeepAlive"] == {"SuccessfulExit": False}  # at login; again after a crash
+    assert data.stat().st_mode & 0o777 == 0o700  # launchd writes the log there; seller data is owner-only
+    domain = f"gui/{os.getuid()}"
+    assert calls.read_text().splitlines() == [  # a reinstall replaces the running copy
+        f"launchctl bootout {domain}/local.gem-assistant.server",
+        f"launchctl bootstrap {domain} {agent}",
+    ]
+
+
+def test_the_app_icon_opens_the_page(mac):
+    import plistlib
+    import subprocess
+
+    from gem_assistant import cli
+
+    home, calls = mac
+    assert cli.main(["install-app"]) == 0
+    calls.write_text("")
+
+    contents = home / "Applications" / "GeM Assistant.app" / "Contents"
+    info = plistlib.loads((contents / "Info.plist").read_bytes())
+    assert info["CFBundlePackageType"] == "APPL"
+    subprocess.run([str(contents / "MacOS" / info["CFBundleExecutable"])], check=True)
+    assert [line for line in calls.read_text().splitlines() if not line.startswith("curl")] == [
+        "open http://127.0.0.1:8000/"]
 
 
 @pytest.fixture

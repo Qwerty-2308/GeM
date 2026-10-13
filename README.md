@@ -20,21 +20,38 @@ rationale lives in `../docs/00-RESEARCH-AND-ARCHITECTURE.md`.
    uv sync
    uv run playwright install chromium
    ```
-4. Start it (below) and type your email in the box on the **Find bids** page, so every
+4. Make it an app (macOS):
+   ```bash
+   uv run gem-assistant install-app
+   ```
+   This adds **GeM Assistant** to `~/Applications` (find it in Launchpad; drag it to the Dock)
+   and registers the app to run in the background from login. macOS shows a "Background
+   Items Added" notice once; that's this. From now on he only double-clicks the icon.
+5. Open it and type your email in the box on the **Find bids** page, so every
    request names someone GeM can reach. **Nothing is sent to GeM until it is set.** It is kept
    in the data folder (`contact-email.txt`); `GEM_CONTACT_EMAIL` works too, but the app's value wins.
-5. On **Find bids**, fill in *What to look for*: the products you sell, words to ignore
+6. On **Find bids**, fill in *What to look for*: the products you sell, words to ignore
    (refilling, repair, AMC…), and whether bids made mostly of your products or bids closing
    soonest come first. Then fill in turnover and experience on **Seller profile**.
 
 ## Run it
+
+Double-click **GeM Assistant**. It opens http://127.0.0.1:8000 in the browser; the server behind
+it is already running (it starts at login and again after a crash) and only listens on this
+computer. Its output goes to `app.log` in the data folder.
+
+Without the app (or on Linux):
 
 ```bash
 cd backend
 uv run gem-assistant serve        # starts on http://127.0.0.1:8000 and opens it (--no-open to skip)
 ```
 
-Stop it with Ctrl-C. It only listens on this computer.
+Stop it with Ctrl-C. If the app's server is already running, `serve` just opens the page.
+
+To remove the app: `launchctl bootout gui/$(id -u)/local.gem-assistant.server`, then delete
+`~/Library/LaunchAgents/local.gem-assistant.server.plist` and `~/Applications/GeM Assistant.app`.
+After moving the project folder, run `install-app` again.
 
 ## Your data
 
@@ -112,6 +129,7 @@ purpose.
 | Current GeM form (2026): relaxations (complete/partial), EMD/ePBG amounts, MII compliance | done; checked on 30 live bids |
 | Turnover and experience requirements compared with the profile | done; blocks only on a clear shortfall no relaxation covers |
 | Bid PDFs kept; stored bids re-read when the rules improve | done; automatic on `serve` |
+| Mac app (`install-app`): icon opens the page; server runs in the background from login | done; checked on a Mac: survives the icon quitting, restarts after a crash |
 | LLM reading of free-text ATC, ATC attachments | later |
 
 ## How bid search works

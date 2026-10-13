@@ -7,11 +7,17 @@
     gem-assistant corpus KEYWORD...  collect real bid documents for parser work (one run)
     gem-assistant probe FOLDER       after corpus: do buyer attachments open without login?
     gem-assistant reanalyse          re-read stored bids with the current rules (serve does this too)
+    gem-assistant install-app        macOS: a GeM Assistant app icon; the server runs from login
 """
 
 from __future__ import annotations
 
 import argparse
+import os
+import plistlib
+import socket
+import subprocess
+import sys
 import threading
 import webbrowser
 from pathlib import Path
@@ -45,7 +51,17 @@ def main(argv: list[str] | None = None) -> int:
     probe = sub.add_parser("probe", help="after corpus: check once whether buyer attachments open without login")
     probe.add_argument("folder", type=Path)
 
+    sub.add_parser("install-app", help="make a double-clickable GeM Assistant app in ~/Applications (macOS)")
+
     args = parser.parse_args(argv)
+    if args.command == "install-app":
+        return _install_app(Settings.from_env().data_dir)
+    if args.command == "serve" and _already_running(args.port):
+        url = f"http://127.0.0.1:{args.port}/"
+        print(f"GeM Assistant is already running at {url}")
+        if not args.no_open:
+            _open_browser_later(url)
+        return 0
     container = Container.build(Settings.from_env())
 
     if args.command == "serve":
@@ -112,6 +128,57 @@ def main(argv: list[str] | None = None) -> int:
             print("Fetching is now stopped. Check GeM in a normal browser, then reset it on the Safety page.")
         return 0
     return 1
+
+
+def _already_running(port: int) -> bool:
+    """Something already listens on our port: the background copy that install-app set up."""
+    try:
+        socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
+        return True
+    except OSError:
+        return False
+
+
+_AGENT = "local.gem-assistant.server"
+
+
+def _install_app(data_dir: Path) -> int:
+    """Two parts. The server is a Login Item of its own (a launchd agent): it starts at login and
+    again after a crash, running this install's command on the data folder used now. The app icon
+    only opens the page; it starts nothing, because macOS ends whatever an app started when the
+    app quits."""
+    if sys.platform != "darwin":
+        print("install-app makes a macOS app. On other systems run: gem-assistant serve")
+        return 2
+    data_dir.mkdir(mode=0o700, parents=True, exist_ok=True)  # launchd writes the log there
+    log = str(data_dir / "app.log")
+    agent = Path.home() / "Library" / "LaunchAgents" / f"{_AGENT}.plist"
+    agent.parent.mkdir(parents=True, exist_ok=True)
+    agent.write_bytes(plistlib.dumps({
+        "Label": _AGENT,
+        "ProgramArguments": [str(Path(sys.executable).with_name("gem-assistant")), "serve", "--no-open"],
+        "EnvironmentVariables": {"GEM_DATA_DIR": str(data_dir)},
+        "StandardOutPath": log, "StandardErrorPath": log,
+        "RunAtLoad": True, "KeepAlive": {"SuccessfulExit": False}}))
+    domain = f"gui/{os.getuid()}"
+    subprocess.run(["launchctl", "bootout", f"{domain}/{_AGENT}"], capture_output=True)  # not loaded yet: fine
+    subprocess.run(["launchctl", "bootstrap", domain, str(agent)], check=True)
+
+    app = Path.home() / "Applications" / "GeM Assistant.app"
+    (app / "Contents" / "MacOS").mkdir(parents=True, exist_ok=True)
+    (app / "Contents" / "Info.plist").write_bytes(plistlib.dumps({
+        "CFBundleName": "GeM Assistant", "CFBundleExecutable": "open-page",
+        "CFBundleIdentifier": "local.gem-assistant", "CFBundlePackageType": "APPL"}))
+    url = "http://127.0.0.1:8000/"
+    launcher = app / "Contents" / "MacOS" / "open-page"
+    launcher.write_text(  # right after login the server may still be starting
+        "#!/bin/sh\n"
+        f"i=0; while [ $i -lt 30 ] && ! curl -s -o /dev/null {url}; do sleep 1; i=$((i + 1)); done\n"
+        f"open {url}\n")
+    launcher.chmod(0o755)
+    print(f"GeM Assistant now runs in the background from login (log: {log}).\n"
+          f"Made {app}: open it from Finder or Launchpad, or drag it to the Dock.")
+    return 0
 
 
 def _open_browser_later(url: str) -> None:
