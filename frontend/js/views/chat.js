@@ -150,7 +150,7 @@ export async function renderChat(container, _params, api) {
   const [chat, safety] = await Promise.all([api.chatStatus(), api.getSafety()]);
   const setup = el("div");
   if (!chat.ready) {
-    setup.append(notice("warn", "The chat isn't set up yet. On this Mac, in Terminal, run: gem-assistant set-groq-key"));
+    setup.append(notice("warn", "The chat has no Groq API key yet. On a server, set GROQ_API_KEY; on a Mac, run: gem-assistant set-groq-key"));
   }
   if (!safety.contact_email) setup.append(contactCard(api, null));
 

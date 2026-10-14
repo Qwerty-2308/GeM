@@ -34,7 +34,8 @@ class GroqChatModel:
     def complete(self, messages: list[dict], tools: list[dict]) -> dict:
         key = self._api_key()
         if not key:
-            raise ChatModelError("The chat isn't set up yet. Run: gem-assistant set-groq-key")
+            raise ChatModelError("The chat has no Groq API key yet. On a server, set GROQ_API_KEY; on a Mac, run: "
+                                "gem-assistant set-groq-key")
         try:
             response = self._client.post(GROQ_URL, headers={"Authorization": f"Bearer {key}"}, json={
                 "model": self.model, "messages": messages, "tools": tools, "temperature": 0.2,
@@ -42,7 +43,8 @@ class GroqChatModel:
         except httpx.HTTPError as error:
             raise ChatModelError("Couldn't reach Groq. Check the internet connection and ask again.") from error
         if response.status_code == 401:
-            raise ChatModelError("Groq refused the API key. Set it again with: gem-assistant set-groq-key")
+            raise ChatModelError("Groq refused the API key. Set GROQ_API_KEY again (server) or run: "
+                                "gem-assistant set-groq-key (Mac)")
         if response.status_code == 429:
             raise ChatModelError("Groq is busy right now (rate limit). Wait a minute and ask again.")
         if response.status_code >= 400:

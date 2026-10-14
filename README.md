@@ -91,16 +91,18 @@ Set these as the host's secrets, never in the code:
 
 Run **exactly one copy**: the data is one SQLite file, and GeM's request limits are counted in it.
 
-Example, Fly.io in Mumbai (from the repository root):
+On Fly.io in Mumbai, with the `fly.toml` in this repository (one always-on machine, a 1 GB
+disk at `/data`, HTTPS forced). From the repository root, after `brew install flyctl`:
 
 ```bash
-fly launch --no-deploy --region bom          # finds the Dockerfile; set internal_port = 8080
-fly volumes create gem_data --region bom --size 1
-#   then in fly.toml:  [mounts]  source = "gem_data"  destination = "/data"
+fly auth login                                   # opens the browser; a card is needed
+fly apps create gem-assistant-chat               # taken? pick another name and put it in fly.toml
+fly volumes create gem_data --region bom --size 1 --yes
 fly secrets set GEM_PASSWORD='...' GROQ_API_KEY='...' GEM_CONTACT_EMAIL='...'
-fly deploy
-fly scale count 1
+fly deploy --ha=false                            # exactly one machine
 ```
+
+The site is then at `https://gem-assistant-chat.fly.dev` (or your app name).
 
 **First check after deploying:** log in and ask the chat to search for one of his products.
 If it reports that fetching stopped (a 403 or a block page), GeM refuses that server's address.
