@@ -80,7 +80,7 @@ tr.clickable:hover { background: #f0f4fa; }
 .badge.bad { background: var(--bad-bg); color: var(--bad); }
 .badge.neutral { background: var(--bg); color: var(--muted); }
 
-.pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; }
+.pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; text-decoration: none; }
 .pill.ok { background: var(--ok-bg); color: var(--ok); }
 .pill.bad { background: var(--bad-bg); color: var(--bad); }
 

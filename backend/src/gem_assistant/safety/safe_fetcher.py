@@ -86,7 +86,7 @@ class SafeFetcher:
             if result.kind is ResponseKind.BLOCK:
                 self._breaker.trip(f"{result.reason} — {label}")
                 raise BlockedByGeM(result.reason)
-            if result.kind is ResponseKind.NOT_FOUND:
+            if result.kind in (ResponseKind.NOT_FOUND, ResponseKind.SERVER_ERROR):
                 raise UnexpectedResponse(result.reason)
             return response
 

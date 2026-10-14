@@ -47,7 +47,8 @@ DEFINITIONS = [
     _tool("propose_profile_update",
           "Propose changes to the seller's profile. Nothing is saved: he sees the change and confirms it "
           "himself. Pass only the fields that change.",
-          {"products": {**_LIST, "description": "Products he sells, as GeM names them, e.g. 'office chair'"},
+          {"add_products": {**_LIST, "description": "Products to add, as GeM names them, e.g. 'office chair'"},
+           "remove_products": {**_LIST, "description": "Saved products he no longer sells"},
            "ignore_words": {**_LIST, "description": "Items naming these never count, e.g. 'repair', 'AMC'"},
            "annual_turnover_rupees": {"type": "integer", "description": "Average annual turnover in rupees"},
            "years_experience": {"type": "integer"},
@@ -55,8 +56,10 @@ DEFINITIONS = [
            "business_name": {"type": "string"},
            "bid_order": {"type": "string", "enum": ["match", "closing"],
                          "description": "Download first: bids made mostly of his products, or closing soonest"}}),
-    _tool("search_gem", "Start one search of GeM's public bid list for his products. It takes a few minutes; "
-                        "the page shows the results by itself. Searches are at least 15 minutes apart."),
+    _tool("search_gem", "Start one search of GeM's public bid list for the products saved in his profile, and "
+                        "only those: if he names a product that isn't saved, propose adding it and search only "
+                        "after he has confirmed it. It takes a few minutes; the page shows the results by itself. "
+                        "Searches are at least 15 minutes apart."),
     _tool("search_status", "Whether a search is running, how the last one ended, and the bids of his products "
                            "it found."),
     _tool("list_bids", "Bids already downloaded and checked, with the verdict for each."),
@@ -68,7 +71,7 @@ DEFINITIONS = [
     _tool("safety_status", "Whether fetching from GeM is stopped for safety, and today's request count."),
 ]
 
-_PROFILE_FIELDS = {"products": "categories", "ignore_words": "ignore_words",
+_PROFILE_FIELDS = {"ignore_words": "ignore_words",
                    "annual_turnover_rupees": "annual_turnover_rupees", "years_experience": "years_experience",
                    "is_mse": "is_mse", "is_startup": "is_startup", "is_oem": "is_oem",
                    "business_name": "business_name", "bid_order": "bid_order"}
@@ -79,6 +82,7 @@ class ChatTools:
 
     def __init__(self, container: "Container"):
         self._c = container
+        self._proposed = False  # a profile change shown in this question, not confirmed yet
 
     def call(self, name: str, args: dict[str, Any]) -> ToolResult:
         handler = getattr(self, f"_{name}", None)
@@ -96,15 +100,26 @@ class ChatTools:
             return ToolResult({"profile": None, "note": "No profile saved yet."})
         return ToolResult({"profile": profile.model_dump(mode="json", exclude={"updated_at"})})
 
-    def _propose_profile_update(self, **changes: Any) -> ToolResult:
+    def _propose_profile_update(self, add_products: Any = (), remove_products: Any = (),
+                                **changes: Any) -> ToolResult:
         unknown = set(changes) - set(_PROFILE_FIELDS)
         if unknown:
             return ToolResult({"error": f"Not profile fields: {', '.join(sorted(unknown))}"})
         current = (self._c.profiles.get() or SellerProfile()).model_dump(exclude={"updated_at"})
+        fields = {_PROFILE_FIELDS[k]: v for k, v in changes.items()}
+        if add_products or remove_products:
+            # Additions and removals rather than a new list: a model that forgets a saved product
+            # mustn't drop it from his searches.
+            dropped = {p.strip().lower() for p in _names(remove_products)}
+            kept = [p for p in current["categories"] if p.lower() not in dropped]
+            fields["categories"] = kept + [p for p in _names(add_products)
+                                           if p.strip().lower() not in {k.lower() for k in kept}]
+            changes = {**changes, "products": fields["categories"]}
         try:
-            proposed = SellerProfile(**{**current, **{_PROFILE_FIELDS[k]: v for k, v in changes.items()}})
+            proposed = SellerProfile(**{**current, **fields})
         except ValidationError as error:
             return ToolResult({"error": f"That change isn't possible: {error.errors()[0]['msg']}"})
+        self._proposed = True
         return ToolResult(
             {"status": "Shown to him with a Confirm button; not saved until he clicks it.", "changes": changes},
             {"type": "profile_proposal", "changes": changes,
@@ -112,10 +127,13 @@ class ChatTools:
 
     # ---- search ----
     def _search_gem(self) -> ToolResult:
+        if self._proposed:
+            return ToolResult({"started": False, "reason": "He hasn't pressed Confirm on the profile change yet, so "
+                               "a search now would use the old products. Search after he confirms."})
         try:
             self._c.discovery.start_in_background(trigger="chat")
         except DiscoveryNotAllowed as error:
-            return ToolResult({"started": False, "reason": str(error)})
+            return ToolResult({"started": False, "reason": str(error)}, self._safety_status().card)
         return ToolResult({"started": True, "note": "Takes a few minutes; the page shows the results when done."},
                           {"type": "search"})
 
@@ -184,7 +202,8 @@ class ChatTools:
         except (BadBidLink, UrlNotAllowed) as error:
             return ToolResult({"error": f"Only GeM bid links work here: {error}"})
         except SafetyError as error:  # stopped, blocked, budget used up
-            return ToolResult({"error": f"Fetching from GeM isn't possible right now: {error}"})
+            return ToolResult({"error": f"Fetching from GeM isn't possible right now: {error}"},
+                              self._safety_status().card)
         except (InvalidPdf, EvidenceMismatch) as error:
             return ToolResult({"error": f"Downloaded, but it couldn't be read: {error}"})
         except Exception as error:  # network trouble; the safety layer logged it, nothing is retried
@@ -202,3 +221,7 @@ class ChatTools:
         if not s.contact_email:
             return ToolResult(data, {"type": "contact_needed"})
         return ToolResult(data)
+
+
+def _names(value: Any) -> list[str]:
+    return [value] if isinstance(value, str) else [str(v) for v in value]

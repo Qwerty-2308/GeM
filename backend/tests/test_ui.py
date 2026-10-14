@@ -31,7 +31,7 @@ def chat_app(settings, clock, transport):
     """The chat, with a model that proposes a product and then asks him to confirm it."""
     from .test_chat import ScriptedModel, _calls, _says
 
-    model = ScriptedModel(_calls(("propose_profile_update", {"products": ["fire extinguisher"]})),
+    model = ScriptedModel(_calls(("propose_profile_update", {"add_products": ["fire extinguisher"]})),
                           _says("I've filled in your product. Please confirm it."))
     yield from _serve(Container.build(settings, clock=clock, transport=transport, chat_model=model))
 
@@ -168,6 +168,20 @@ def test_the_chat_is_the_only_screen_and_a_profile_change_waits_for_his_click(ch
     assert container.profiles.get().categories == ["fire extinguisher"]
     page.reload()
     page.wait_for_selector("text=I sell fire extinguishers")  # the conversation is still there
+
+
+def test_after_a_safety_stop_resuming_is_one_click_from_the_chat(chat_app, page, transport):
+    from gem_assistant.safety.errors import BlockedByGeM
+
+    from .test_safe_fetcher import GOOD_URL
+
+    base, container = chat_app
+    transport.queue(status=403)
+    with pytest.raises(BlockedByGeM):
+        container.fetcher.get(GOOD_URL)
+    page.goto(base + "/")
+    page.click("text=Fetching stopped")
+    page.wait_for_selector("text=Resume fetching")
 
 
 def test_a_fresh_install_says_what_to_set_up_first(live_app, page, monkeypatch):

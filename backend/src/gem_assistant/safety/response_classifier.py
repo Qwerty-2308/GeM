@@ -13,6 +13,7 @@ class ResponseKind(str, Enum):
     OK = "ok"
     NOT_FOUND = "not_found"   # normal failure, no trip
     BLOCK = "block"           # warning sign, trip the breaker
+    SERVER_ERROR = "server_error"  # GeM itself failed: end this request, no trip (blueprint §20)
 
 
 class Expect(str, Enum):
@@ -63,7 +64,13 @@ class ResponseClassifier:
         if status in BLOCK_STATUSES:
             return Classification(ResponseKind.BLOCK, f"GeM answered HTTP {status}")
         if status >= 500:
-            return Classification(ResponseKind.BLOCK, f"GeM server error HTTP {status}")
+            # GeM down stops the run but needs no person to clear it; a challenge page sent with
+            # a 5xx is still a block.
+            marker = _challenge_marker(response)
+            if marker:
+                return Classification(ResponseKind.BLOCK, f"Page looks like a challenge or block page ('{marker}')")
+            return Classification(ResponseKind.SERVER_ERROR,
+                                  f"GeM's server had an error (HTTP {status}). Not retried; try again later")
         if 300 <= status < 400:
             location = response.headers.get("location", "?")
             return Classification(ResponseKind.BLOCK, f"Unexpected redirect to {location} (possible login wall)")
@@ -99,7 +106,12 @@ class ResponseClassifier:
                                       "(possible challenge or block page)")
             return Classification(ResponseKind.OK, "fragment")
 
-        for marker in CHALLENGE_MARKERS:
-            if marker in head:
-                return Classification(ResponseKind.BLOCK, f"Page looks like a challenge or block page ('{marker}')")
+        marker = _challenge_marker(response)
+        if marker:
+            return Classification(ResponseKind.BLOCK, f"Page looks like a challenge or block page ('{marker}')")
         return Classification(ResponseKind.OK, "ok")
+
+
+def _challenge_marker(response: HttpResponse) -> str | None:
+    head = response.body[:65536].decode("utf-8", errors="ignore").lower()
+    return next((marker for marker in CHALLENGE_MARKERS if marker in head), None)

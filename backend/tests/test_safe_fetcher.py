@@ -96,7 +96,7 @@ def test_daily_budget_stops_requests(settings: Settings, clock, transport):
     (403, {}, b""),
     (429, {}, b""),
     (401, {}, b""),
-    (503, {}, b""),
+    (503, {}, b"<html>Please complete the CAPTCHA</html>"),  # a challenge, whatever its status
     (302, {"location": "https://sso.gem.gov.in/ARXSSO/oauth/doLogin"}, b""),
     (200, {}, b"<html>Please complete the CAPTCHA</html>"),
     (200, {}, b"<html>The requested URL was rejected. Your support ID is 123</html>"),
@@ -109,6 +109,18 @@ def test_warning_signs_trip_breaker_and_stop_everything(container: Container, tr
     with pytest.raises(FetchingStopped):
         container.fetcher.get(GOOD_URL)
     assert len(transport.calls) == 1  # the second call never left the machine
+
+
+@pytest.mark.parametrize("status", [500, 502, 503])
+def test_a_gem_server_error_ends_that_request_without_stopping_fetching(container: Container, transport, status):
+    # Blueprint §20: GeM down (5xx) stops the run. Only a block needs a person to clear it.
+    transport.queue(status=status)
+    with pytest.raises(UnexpectedResponse, match=f"HTTP {status}"):
+        container.fetcher.get(GOOD_URL)
+    assert len(transport.calls) == 1  # not retried
+
+    transport.queue()
+    container.fetcher.get(GOOD_URL)  # the next request still goes out
 
 
 def test_breaker_stays_open_after_restart(settings: Settings, clock, transport):

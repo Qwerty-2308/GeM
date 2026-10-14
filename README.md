@@ -328,7 +328,8 @@ backend/tests/            283 tests, incl. four real bid PDFs (2025 + 2026), a r
 - POST only to the listing page's own search (`/all-bids-data`) and its own corrigendum view
   (`/bidding/bid/viewCorrigendum/<id>`), and only from the rendered listing page. The
   corrigendum path accepts an id and nothing deeper.
-- Any 401/403/429, 5xx, redirect, CAPTCHA or block page trips the breaker. It stays tripped across restarts until a person resets it on the Safety page.
+- Any 401/403/429, redirect, CAPTCHA or block page trips the breaker. A GeM server error (5xx) only
+  ends that search, unretried. It stays tripped across restarts until a person resets it on the Safety page.
 - No automatic retries, no proxies, no IP rotation.
 - The web server binds to 127.0.0.1 and rejects other hosts and cross-site POSTs.
 - As a website (`--host 0.0.0.0`) it refuses to start without a complete login: Google sign-in for

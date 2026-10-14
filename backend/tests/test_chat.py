@@ -97,13 +97,37 @@ def test_a_proposed_profile_change_is_shown_not_saved(container):
     from gem_assistant.services.chat_tools import ChatTools
 
     result = ChatTools(container).call("propose_profile_update", {
-        "products": ["office chair"], "annual_turnover_rupees": 5_000_000, "is_mse": True})
+        "add_products": ["office chair"], "annual_turnover_rupees": 5_000_000, "is_mse": True})
     assert container.profiles.get() is None
     assert "not saved" in result.data["status"]
     assert result.card["type"] == "profile_proposal"
     proposed = result.card["profile"]
     assert (proposed["categories"], proposed["annual_turnover_rupees"], proposed["is_mse"]) == (
         ["office chair"], 5_000_000, True)
+
+
+def test_a_product_change_keeps_the_products_he_did_not_mention(container):
+    from gem_assistant.domain.models import SellerProfile
+    from gem_assistant.services.chat_tools import ChatTools
+
+    container.profiles.save(SellerProfile(categories=["fire extinguisher", "fire bucket"]))
+    tools = ChatTools(container)
+
+    added = tools.call("propose_profile_update", {"add_products": ["chair"]})
+    assert added.card["profile"]["categories"] == ["fire extinguisher", "fire bucket", "chair"]
+    assert added.card["changes"] == {"products": ["fire extinguisher", "fire bucket", "chair"]}
+
+    removed = tools.call("propose_profile_update", {"remove_products": ["Fire Bucket"]})
+    assert removed.card["profile"]["categories"] == ["fire extinguisher"]
+
+
+def test_no_search_until_he_confirms_a_product_change(container, transport):
+    from gem_assistant.services.chat_tools import ChatTools
+
+    tools = ChatTools(container)  # one per question
+    tools.call("propose_profile_update", {"add_products": ["chair"]})
+    result = tools.call("search_gem", {})
+    assert result.data["started"] is False and "Confirm" in result.data["reason"] and transport.calls == []
 
 
 def test_an_impossible_profile_change_is_refused(container):
@@ -148,6 +172,22 @@ def test_search_gem_says_why_it_cannot_start(container):
 
     result = ChatTools(container).call("search_gem", {})
     assert result.data["started"] is False and "categories" in result.data["reason"]
+
+
+def test_a_search_refused_by_the_safety_stop_shows_how_to_resume(container, transport):
+    from gem_assistant.domain.models import SellerProfile
+    from gem_assistant.safety.errors import BlockedByGeM
+    from gem_assistant.services.chat_tools import ChatTools
+
+    from .test_safe_fetcher import GOOD_URL
+
+    container.profiles.save(SellerProfile(categories=["chair"]))
+    transport.queue(status=403)
+    with pytest.raises(BlockedByGeM):
+        container.fetcher.get(GOOD_URL)
+
+    result = ChatTools(container).call("search_gem", {})
+    assert result.data["started"] is False and result.card["type"] == "safety_stop"
 
 
 def test_search_status_lists_what_the_last_search_found(container):
