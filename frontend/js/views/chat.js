@@ -124,7 +124,8 @@ function renderCard(card, api) {
 
 function bubble(item, api) {
   if (item.kind === "user") return el("div", { class: "msg user" }, item.text);
-  if (item.kind === "bot") return el("div", { class: "msg bot" }, item.text);
+  // Models add **bold** now and then despite being asked not to; the text is shown as plain text.
+  if (item.kind === "bot") return el("div", { class: "msg bot" }, item.text.replace(/\*\*(.+?)\*\*/g, "$1"));
   // Cards that act (Confirm, live search) only make sense the moment they arrive.
   if (item.card.type === "profile_proposal" || item.card.type === "search") {
     return item.fresh ? renderCard(item.card, api) : null;

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
-from ..domain.models import SellerProfile
+from ..domain.models import FieldStatus, SellerProfile, Verdict
 from ..infrastructure.pypdf_extractor import InvalidPdf
 from ..safety.errors import SafetyError, UrlNotAllowed
 from .bid_fetch_service import BadBidLink
@@ -27,7 +27,7 @@ from .discovery_service import DiscoveryNotAllowed
 if TYPE_CHECKING:
     from ..container import Container
 
-_QUOTE_FOR_MODEL = 300  # the card shows the whole quote
+_QUOTE_FOR_MODEL = 160  # the card shows the whole quote
 
 
 @dataclass(frozen=True)
@@ -155,17 +155,28 @@ class ChatTools:
             quote = evidence.quote if full else evidence.quote[:_QUOTE_FOR_MODEL]
             return {"page": evidence.page, "quote_from_bid_document": quote}
 
-        def view(full: bool) -> dict:
-            return {
-                "id": bid.id, "bid_number": bid.bid_number, "verdict": item.assessment.verdict.value,
-                "reasons": [{"check": r.rule, "outcome": r.outcome.value, "reason": r.reason, **ev(r.evidence, full)}
-                            for r in item.assessment.results],
-                "fields": [{"name": f.name, "label": f.label, "status": f.status.value, "value": f.value,
-                            **ev(f.evidence, full)} for f in bid.fields],
-                "corrigendum": bid.corrigendum.status.value,
-            }
-
-        return ToolResult(view(full=False), {"type": "bid", **view(full=True)})
+        card = {
+            "type": "bid", "id": bid.id, "bid_number": bid.bid_number, "verdict": item.assessment.verdict.value,
+            "reasons": [{"check": r.rule, "outcome": r.outcome.value, "reason": r.reason, **ev(r.evidence, True)}
+                        for r in item.assessment.results],
+            "fields": [{"name": f.name, "label": f.label, "status": f.status.value, "value": f.value,
+                        **ev(f.evidence, True)} for f in bid.fields],
+            "corrigendum": bid.corrigendum.status.value,
+        }
+        # For the model, only what it needs to answer: Groq counts every token (8,000 a minute on a
+        # free key) and this goes back with each round. The card above carries the full quotes.
+        for_model = {
+            "id": bid.id, "bid_number": bid.bid_number, "verdict": item.assessment.verdict.value,
+            "corrigendum": bid.corrigendum.status.value,
+            "to_check": [{"outcome": r.outcome.value, "reason": r.reason, **ev(r.evidence, False)}
+                         for r in item.assessment.results if r.outcome is not Verdict.ELIGIBLE],
+            "passed_checks": [r.rule for r in item.assessment.results if r.outcome is Verdict.ELIGIBLE],
+            "values": {f.label: [f.value, f.evidence.page] for f in bid.fields
+                       if f.status is FieldStatus.FOUND and f.evidence},
+            "not_found": [f.label for f in bid.fields if f.status is FieldStatus.NOT_FOUND],
+            "conflicting": [f.label for f in bid.fields if f.status is FieldStatus.CONFLICTING],
+        }
+        return ToolResult(for_model, card)
 
     def _add_bid_from_link(self, link: str) -> ToolResult:
         try:

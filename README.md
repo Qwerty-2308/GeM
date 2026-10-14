@@ -94,6 +94,12 @@ Set these as the host's secrets, never in the code:
 
 Changing the allowed emails, the password or the Google client logs everyone out.
 
+**Keep them in one `.env` file in the data folder**, e.g.
+`~/Library/Application Support/GeM Assistant/.env` (owner-only; outside the project, so it is never
+synced with an iCloud Desktop, committed, or copied into the Docker image). One `KEY=value` per line.
+The app reads it at start; a variable set in the real environment wins. To hand the same values to
+the server: `grep -v "^#" "$HOME/Library/Application Support/GeM Assistant/.env" | fly secrets import`.
+
 **Google sign-in, once** (console.cloud.google.com, your project):
 
 1. *Google Auth Platform* (OAuth consent screen): app name "GeM Assistant", audience **External**,
@@ -114,8 +120,7 @@ disk at `/data`, HTTPS forced). From the repository root, after `brew install fl
 fly auth login                                   # opens the browser; a card is needed
 fly apps create gem-assistant-chat               # taken? pick another name and put it in fly.toml
 fly volumes create gem_data --region bom --size 1 --yes
-fly secrets set GOOGLE_CLIENT_SECRET='...' GEM_ALLOWED_EMAILS='father@gmail.com,you@gmail.com' \
-  GROQ_API_KEY='...' GEM_CONTACT_EMAIL='...'
+grep -v "^#" "$HOME/Library/Application Support/GeM Assistant/.env" | fly secrets import   # comments stay behind
 fly deploy --ha=false                            # exactly one machine
 ```
 

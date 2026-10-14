@@ -14,6 +14,22 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 PLACEHOLDER_CONTACT = "set-GEM_CONTACT_EMAIL@example.com"
 
 
+def _load_env_file(path: Path) -> None:
+    """Secrets (GROQ_API_KEY, GOOGLE_CLIENT_SECRET, ...) from the data folder's .env: owner-only,
+    outside the project, so never synced with the Desktop or committed. KEY=VALUE lines; # comments;
+    optional quotes. A variable already set in the real environment wins."""
+    if not path.is_file():
+        return
+    for line in path.read_text().splitlines():
+        name, sep, value = line.partition("=")
+        name, value = name.strip(), value.strip()
+        if not sep or not name or name.startswith("#"):
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        os.environ.setdefault(name, value)
+
+
 def default_data_dir() -> Path:
     """Per-user app data, outside the project folder. The project may live in a synced
     folder (iCloud Desktop & Documents, Dropbox), and the seller profile must never leave
@@ -111,6 +127,7 @@ class Settings:
     @classmethod
     def from_env(cls) -> "Settings":
         data_dir = Path(os.environ.get("GEM_DATA_DIR") or default_data_dir())
+        _load_env_file(data_dir / ".env")
         safety = SafetySettings(
             min_interval_seconds=max(4.0, _env_float("GEM_MIN_INTERVAL_SECONDS", 4.0)),
             daily_request_limit=min(250, _env_int("GEM_DAILY_REQUEST_LIMIT", 250)),

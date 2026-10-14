@@ -47,6 +47,25 @@ def test_an_answer_in_an_unexpected_shape_reads_as_a_plain_sentence():
         _groq(lambda request: httpx.Response(200, json={"unexpected": True})).complete([], [])
 
 
+def test_a_short_busy_spell_is_waited_out_once():
+    answers = [httpx.Response(429, headers={"retry-after": "2"}), httpx.Response(200, json={"choices": [{"message": {
+        "role": "assistant", "content": "ok"}}]})]
+    slept = []
+    model = GroqChatModel(lambda: "k", "m", transport=httpx.MockTransport(lambda request: answers.pop(0)),
+                          sleep=slept.append)
+    assert model.complete([], []) == {"role": "assistant", "content": "ok"}
+    assert slept == [2.0]
+
+
+def test_a_long_busy_spell_is_not_waited_out():
+    slept = []
+    model = GroqChatModel(lambda: "k", "m", sleep=slept.append, transport=httpx.MockTransport(
+        lambda request: httpx.Response(429, headers={"retry-after": "120"})))
+    with pytest.raises(ChatModelError, match="busy"):
+        model.complete([], [])
+    assert slept == []
+
+
 def test_no_internet_reads_as_a_plain_sentence():
     def handler(request):
         raise httpx.ConnectError("offline")
@@ -106,8 +125,13 @@ def test_bid_figures_come_with_their_page_and_quote(container):
 
     detail = tools.call("get_bid", {"bid_id": bid_id})
     assert detail.data["bid_number"] == "GEM/2025/B/6819518"
-    emd = next(f for f in detail.data["fields"] if f["name"] == "emd_required")
-    assert emd["value"] == "No" and emd["page"] >= 1 and emd["quote_from_bid_document"]
+    value, page = detail.data["values"]["EMD required"]
+    assert value == "No" and page >= 1
+    assert all(item["page"] and item["quote_from_bid_document"] for item in detail.data["to_check"] if "page" in item)
+    # Groq's free tier allows 8,000 tokens a minute: the model gets values and pages, the card the quotes.
+    assert len(json.dumps(detail.data, ensure_ascii=False)) < 3500
+    card_quotes = [f["quote_from_bid_document"] for f in detail.card["fields"] if f.get("quote_from_bid_document")]
+    assert card_quotes  # the whole evidence still reaches the page
     assert (detail.card["type"], detail.card["id"]) == ("bid", bid_id)
     assert "error" in tools.call("get_bid", {"bid_id": 999}).data
 
@@ -278,3 +302,14 @@ def test_set_groq_key_keeps_it_owner_only_and_the_page_never_sees_it(monkeypatch
                      clock, transport)
     status = client.get("/api/chat")
     assert status.json()["ready"] is True and "gsk_secret123" not in status.text
+
+
+def test_tool_results_from_earlier_questions_are_left_out(container):
+    """They are resent with every question and Groq counts every token; the cards already showed them."""
+    old_result = {"role": "tool", "tool_call_id": "c0", "content": json.dumps({"bids": ["x" * 3000]})}
+    history = [{"role": "user", "content": "my bids?"}, _calls(("list_bids", {})), old_result,
+               _says("You have one."), {"role": "user", "content": "and the EMD?"}]
+    model = ScriptedModel(_says("ok"))
+    _chat(container, model, history)
+    sent_tool = next(m for m in model.sent[0] if m["role"] == "tool")
+    assert sent_tool["tool_call_id"] == "c0" and len(sent_tool["content"]) < 200

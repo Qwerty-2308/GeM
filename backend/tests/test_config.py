@@ -36,3 +36,38 @@ def test_a_new_data_folder_is_private_to_the_user(settings, clock, transport, tm
     Container.build(replace(settings, data_dir=fresh, db_path=fresh / "gem.sqlite3"),
                     clock=clock, transport=transport)
     assert fresh.stat().st_mode & 0o777 == 0o700
+
+
+def test_secrets_are_read_from_the_data_folders_env_file(monkeypatch, tmp_path):
+    """The .env sits in the data folder (owner-only, never synced or committed). Real environment
+    variables win over it."""
+    import os
+
+    from gem_assistant.config import Settings
+
+    (tmp_path / ".env").write_text(
+        "# secrets\n"
+        "GROQ_API_KEY=gsk_from_file\n"
+        "GOOGLE_CLIENT_ID = 'id-from-file'\n"
+        'GOOGLE_CLIENT_SECRET="secret=with=equals"\n'
+        "\n"
+        "GEM_ALLOWED_EMAILS=Father@Gmail.com, son@gmail.com\n"
+        "GEM_PASSWORD=from-the-file-123\n")
+    monkeypatch.setenv("GEM_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GEM_PASSWORD", "from-the-real-environment")
+    for name in ("GROQ_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GEM_ALLOWED_EMAILS"):
+        monkeypatch.setenv(name, "x")  # so the file's values are removed again after this test
+        monkeypatch.delenv(name)
+
+    settings = Settings.from_env()
+    assert os.environ["GROQ_API_KEY"] == "gsk_from_file"  # the chat reads it from the environment
+    assert (settings.google_client_id, settings.google_client_secret) == ("id-from-file", "secret=with=equals")
+    assert settings.allowed_emails == ("father@gmail.com", "son@gmail.com")
+    assert settings.password == "from-the-real-environment"
+
+
+def test_no_env_file_is_fine(monkeypatch, tmp_path):
+    from gem_assistant.config import Settings
+
+    monkeypatch.setenv("GEM_DATA_DIR", str(tmp_path))
+    assert Settings.from_env().data_dir == tmp_path
