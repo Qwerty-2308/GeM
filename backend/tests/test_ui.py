@@ -39,17 +39,26 @@ def chat_app(settings, clock, transport):
 @pytest.fixture
 def web_app(settings, clock, transport):
     """Served as a website: a password first."""
-    from gem_assistant.api.auth import Sessions
+    from gem_assistant.api.auth import Login
 
     yield from _serve(Container.build(settings, clock=clock, transport=transport),
-                      Sessions("correct horse battery", b"s" * 32))
+                      Login.build(b"s" * 32, password="correct horse battery"))
 
 
-def _serve(container, sessions=None):
+@pytest.fixture
+def google_app(settings, clock, transport):
+    """Served as a website with Google sign-in only."""
+    from gem_assistant.api.auth import GoogleLogin, Login
+
+    google = GoogleLogin("123.apps.googleusercontent.com", "client-secret", frozenset({"father@gmail.com"}))
+    yield from _serve(Container.build(settings, clock=clock, transport=transport), Login.build(b"s" * 32, google=google))
+
+
+def _serve(container, login=None):
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
-    server = uvicorn.Server(uvicorn.Config(create_app(container, sessions=sessions), host="127.0.0.1", port=port,
+    server = uvicorn.Server(uvicorn.Config(create_app(container, login=login), host="127.0.0.1", port=port,
                                            log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -180,3 +189,13 @@ def test_the_website_asks_for_the_password_first(web_app, page):
     page.wait_for_selector("#chat-input")
     page.click("text=Log out")
     page.wait_for_selector("#password")
+
+
+def test_the_website_offers_google_sign_in_and_explains_a_refusal(google_app, page):
+    base, _ = google_app
+    page.goto(base + "/")
+    button = page.locator("text=Sign in with Google")
+    assert button.get_attribute("href") == "/api/auth/google"
+    assert page.locator("#password").count() == 0  # no password login configured
+    page.goto(base + "/?login_error=not_allowed")
+    page.wait_for_selector("text=isn't allowed")

@@ -8,6 +8,9 @@ primary_region = "bom"
 
 [env]
   PORT = "8080"
+  # Public by design (Google shows it in every sign-in link). The client secret is NOT here:
+  # `fly secrets set GOOGLE_CLIENT_SECRET=...`.
+  GOOGLE_CLIENT_ID = "136170171534-adeerauboso2dfkum26agp6r5542evg5.apps.googleusercontent.com"
 
 [http_service]
   internal_port = 8080

@@ -88,6 +88,10 @@ class Settings:
     discovery: DiscoverySettings = field(default_factory=DiscoverySettings)
     groq_model: str = "openai/gpt-oss-120b"  # production on Groq, tool use, 131k context
     password: str | None = field(default=None, repr=False)  # website mode only (GEM_PASSWORD)
+    # Website mode, Google sign-in: only these emails get in (GEM_ALLOWED_EMAILS, comma-separated).
+    google_client_id: str | None = None
+    google_client_secret: str | None = field(default=None, repr=False)
+    allowed_emails: tuple[str, ...] = ()
 
     @property
     def groq_key_file(self) -> Path:
@@ -132,4 +136,8 @@ class Settings:
             discovery=discovery,
             groq_model=os.environ.get("GROQ_MODEL") or cls.groq_model,
             password=os.environ.get("GEM_PASSWORD") or None,
+            google_client_id=os.environ.get("GOOGLE_CLIENT_ID", "").strip() or None,
+            google_client_secret=os.environ.get("GOOGLE_CLIENT_SECRET", "").strip() or None,
+            allowed_emails=tuple(e.strip().lower() for e in os.environ.get("GEM_ALLOWED_EMAILS", "").split(",")
+                                 if e.strip()),
         )

@@ -44,7 +44,7 @@ async function withErrors(view, container, params) {
 // As a website, nothing but the login shows until he is logged in.
 const session = await api.getSession().catch(() => ({ login_required: false, logged_in: true }));
 if (!session.logged_in) {
-  renderLogin(app, api);
+  renderLogin(app, api, session);
 } else {
   if (session.login_required) {
     const out = el("button", { type: "button", class: "secondary" }, "Log out");

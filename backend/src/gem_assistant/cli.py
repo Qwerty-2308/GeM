@@ -63,15 +63,11 @@ def main(argv: list[str] | None = None) -> int:
         return _install_app(Settings.from_env().data_dir)
     if args.command == "set-groq-key":
         return _set_groq_key(Settings.from_env())
-    sessions = None
+    login = None
     if args.command == "serve" and args.host not in ("127.0.0.1", "localhost", "::1"):
-        settings = Settings.from_env()
-        if not settings.password or len(settings.password) < 12:
-            print("Serving it as a website needs a login password of 12 or more characters in GEM_PASSWORD.")
+        login = _website_login(Settings.from_env())
+        if login is None:
             return 2
-        from .api.auth import Sessions, load_or_create_secret
-
-        sessions = Sessions(settings.password, load_or_create_secret(settings.data_dir / "session-secret.txt"))
     if args.command == "serve" and _already_running(args.port):
         url = f"http://127.0.0.1:{args.port}/"
         print(f"GeM Assistant is already running at {url}")
@@ -89,8 +85,8 @@ def main(argv: list[str] | None = None) -> int:
         if not args.no_open:
             _open_browser_later(f"http://127.0.0.1:{args.port}/")
         # By default 127.0.0.1 only: never reachable from other machines. As a website, every
-        # API call needs a login (sessions).
-        uvicorn.run(create_app(container, sessions=sessions), host=args.host, port=args.port)
+        # API call needs a login.
+        uvicorn.run(create_app(container, login=login), host=args.host, port=args.port)
         return 0
 
     if args.command == "reanalyse":
@@ -145,6 +141,30 @@ def main(argv: list[str] | None = None) -> int:
             print("Fetching is now stopped. Check GeM in a normal browser, then reset it on the Safety page.")
         return 0
     return 1
+
+
+def _website_login(settings: Settings):
+    """Google sign-in for listed emails, a password, or both. None (and why) if neither is set up
+    completely: a website without a login would hand anyone the Groq key and his data."""
+    from .api.auth import GoogleLogin, Login, load_or_create_secret
+
+    google = None
+    if settings.google_client_id or settings.google_client_secret or settings.allowed_emails:
+        if not (settings.google_client_id and settings.google_client_secret and settings.allowed_emails):
+            print("Google sign-in needs all three: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GEM_ALLOWED_EMAILS "
+                  "(the emails that may sign in).")
+            return None
+        google = GoogleLogin(settings.google_client_id, settings.google_client_secret,
+                             frozenset(settings.allowed_emails))
+    password = settings.password
+    if password is not None and len(password) < 12:
+        print("GEM_PASSWORD must be 12 or more characters.")
+        return None
+    if google is None and password is None:
+        print("Serving it as a website needs a login: Google sign-in (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, "
+              "GEM_ALLOWED_EMAILS) or GEM_PASSWORD (12+ characters), or both.")
+        return None
+    return Login.build(load_or_create_secret(settings.data_dir / "session-secret.txt"), password, google)
 
 
 def _already_running(port: int) -> bool:

@@ -73,7 +73,8 @@ After moving the project folder, run `install-app` again.
 
 ## Run it as a website
 
-A chat at your own web address, on your Groq key, behind one password. The image in
+A chat at your own web address, on your Groq key, behind Google sign-in for the emails you list
+(and/or a password). The image in
 `Dockerfile` runs anywhere that runs Docker with a disk that survives restarts, mounted at
 `/data` (the database, kept bid PDFs and logins live there).
 
@@ -85,9 +86,24 @@ Set these as the host's secrets, never in the code:
 
 | Secret | What |
 |---|---|
-| `GEM_PASSWORD` | the login, 12 or more characters; changing it logs everyone out |
+| `GOOGLE_CLIENT_SECRET` | from your Google OAuth client (below); the client ID is public and sits in `fly.toml` |
+| `GEM_ALLOWED_EMAILS` | the Google accounts that may sign in, comma-separated, e.g. `father@gmail.com,you@gmail.com`. **Nobody else gets in**, whatever Google account they have |
 | `GROQ_API_KEY` | your Groq key; the chat's cost goes on your account |
 | `GEM_CONTACT_EMAIL` | sent to GeM with every request, so GeM can reach you instead of blocking |
+| `GEM_PASSWORD` | optional: a password login as well, 12 or more characters |
+
+Changing the allowed emails, the password or the Google client logs everyone out.
+
+**Google sign-in, once** (console.cloud.google.com, your project):
+
+1. *Google Auth Platform* (OAuth consent screen): app name "GeM Assistant", audience **External**,
+   and leave it in **Testing**; add the allowed emails as **test users**. Only test users can sign
+   in, a second lock on top of `GEM_ALLOWED_EMAILS`. It asks only for "openid email", so no Google
+   review is needed.
+2. *Clients* (Credentials): an OAuth client of type **Web application**, with this
+   **Authorized redirect URI**, exactly: `https://gem-assistant-chat.fly.dev/api/auth/google/callback`
+   (your app's address if you renamed it). For trying it on this computer add
+   `http://localhost:8000/api/auth/google/callback` too.
 
 Run **exactly one copy**: the data is one SQLite file, and GeM's request limits are counted in it.
 
@@ -98,7 +114,8 @@ disk at `/data`, HTTPS forced). From the repository root, after `brew install fl
 fly auth login                                   # opens the browser; a card is needed
 fly apps create gem-assistant-chat               # taken? pick another name and put it in fly.toml
 fly volumes create gem_data --region bom --size 1 --yes
-fly secrets set GEM_PASSWORD='...' GROQ_API_KEY='...' GEM_CONTACT_EMAIL='...'
+fly secrets set GOOGLE_CLIENT_SECRET='...' GEM_ALLOWED_EMAILS='father@gmail.com,you@gmail.com' \
+  GROQ_API_KEY='...' GEM_CONTACT_EMAIL='...'
 fly deploy --ha=false                            # exactly one machine
 ```
 
@@ -309,6 +326,7 @@ backend/tests/            283 tests, incl. four real bid PDFs (2025 + 2026), a r
 - Any 401/403/429, 5xx, redirect, CAPTCHA or block page trips the breaker. It stays tripped across restarts until a person resets it on the Safety page.
 - No automatic retries, no proxies, no IP rotation.
 - The web server binds to 127.0.0.1 and rejects other hosts and cross-site POSTs.
-- As a website (`--host 0.0.0.0`) it refuses to start without `GEM_PASSWORD` (12+ characters); every
+- As a website (`--host 0.0.0.0`) it refuses to start without a complete login: Google sign-in for
+  listed emails (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GEM_ALLOWED_EMAILS`) and/or `GEM_PASSWORD` (12+ characters); every
   API call then needs the login (signed, HttpOnly, Secure, SameSite=Strict cookie, 30 days), a wrong
   password costs a second, and writes from other sites are refused.

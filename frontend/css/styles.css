@@ -153,3 +153,8 @@ ul.reasons li { margin-bottom: 8px; }
 .login { max-width: 360px; margin: 64px auto; }
 .login h1 { margin-bottom: 16px; }
 .login input { width: 100%; }
+a.button {
+  display: block; text-align: center; text-decoration: none; padding: 10px 16px; margin-bottom: 12px;
+  border-radius: var(--radius); background: var(--accent); color: #fff; font-weight: 600;
+}
+.login form { margin-top: 8px; }
