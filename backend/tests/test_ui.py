@@ -178,6 +178,23 @@ def test_the_chat_is_the_only_screen_and_a_profile_change_waits_for_his_click(ch
     page.wait_for_selector("text=I sell fire extinguishers")  # the conversation is still there
 
 
+def test_a_bid_he_downloaded_himself_is_checked_in_the_chat(chat_app, page):
+    """Invite-only bids need his own GeM login: he downloads the PDF as usual and drops it in here."""
+    from .conftest import SAMPLE_PDF
+    from .test_chat import _calls, _says
+
+    base, container, source = chat_app
+    container.chat_model.replies[:] = [_calls(("get_bid", {"bid_id": 1})), _says("Checked the bid you added.")]
+    page.goto(base + "/")
+    page.set_input_files("#bid-file", str(SAMPLE_PDF))
+    page.wait_for_selector("text=Checked the bid you added.")
+    assert [b.bid.bid_number for b in container.bid_query.list()] == ["GEM/2025/B/6819518"]
+    assert page.locator(".card", has_text="GEM/2025/B/6819518").count() == 1  # the bid's card, with its reasons
+    asked = container.chat_model.sent[0][-1]["content"]
+    assert "bid 1" in asked  # the model is told which bid to open
+    assert source.calls == []  # GeM is never contacted
+
+
 def test_after_a_safety_stop_resuming_is_one_click_from_the_chat(chat_app, page, transport):
     from gem_assistant.safety.errors import BlockedByGeM
 
