@@ -31,9 +31,14 @@ def chat_app(settings, clock, transport):
     """The chat, with a model that proposes a product and then asks him to confirm it."""
     from .test_chat import ScriptedModel, _calls, _says
 
+    from .test_discovery import FakeSource
+
     model = ScriptedModel(_calls(("propose_profile_update", {"add_products": ["fire extinguisher"]})),
                           _says("I've filled in your product. Please confirm it."))
-    yield from _serve(Container.build(settings, clock=clock, transport=transport, chat_model=model))
+    source = FakeSource()  # Confirm starts a search; it must never reach GeM
+    for served in _serve(Container.build(settings, clock=clock, transport=transport, chat_model=model,
+                                         listing_source_factory=source.bind)):
+        yield (*served, source)
 
 
 @pytest.fixture
@@ -156,16 +161,19 @@ def test_closed_bids_are_hidden_until_asked_for(live_app, page):
 
 
 def test_the_chat_is_the_only_screen_and_a_profile_change_waits_for_his_click(chat_app, page):
-    base, container = chat_app
+    base, container, source = chat_app
     page.goto(base + "/")
     assert page.locator("nav a").count() == 0
     page.fill("#chat-input", "I sell fire extinguishers")
     page.click("text=Send")
     page.wait_for_selector("text=Please confirm it.")
-    assert container.profiles.get() is None  # proposed, not saved
+    assert container.profiles.get() is None and source.calls == []  # proposed, not saved, not searched
     page.click("text=Confirm")
     page.wait_for_selector("text=Saved")
     assert container.profiles.get().categories == ["fire extinguisher"]
+    # He asked for bids of a product, so confirming it starts that search: no second request needed.
+    page.wait_for_selector("text=Found 2 bids", timeout=15000)
+    assert source.calls == [(["fire extinguisher"], 2)]
     page.reload()
     page.wait_for_selector("text=I sell fire extinguishers")  # the conversation is still there
 
@@ -175,7 +183,7 @@ def test_after_a_safety_stop_resuming_is_one_click_from_the_chat(chat_app, page,
 
     from .test_safe_fetcher import GOOD_URL
 
-    base, container = chat_app
+    base, container, _ = chat_app
     transport.queue(status=403)
     with pytest.raises(BlockedByGeM):
         container.fetcher.get(GOOD_URL)

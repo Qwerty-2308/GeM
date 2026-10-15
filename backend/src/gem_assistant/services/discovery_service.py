@@ -152,9 +152,16 @@ class DiscoveryService:
                     "None of those keywords can be searched on GeM (3+ characters, no special characters).")
             allowed_at = self.next_allowed_at()
             if allowed_at and self._clock.now() < allowed_at:
-                minutes = int((allowed_at - self._clock.now()).total_seconds() // 60) + 1
-                raise DiscoveryNotAllowed(
-                    f"GeM updates its listing every 15 minutes. Try again in {minutes} min.")
+                # The wait stops asking GeM the same thing before its listing changes. A product
+                # added since hasn't been asked about, so it is searched now, on its own.
+                gap = timedelta(minutes=self._settings.min_minutes_between_runs)
+                asked = {k.lower() for k in self._runs.keywords_since(self._clock.now() - gap)}
+                new = [k for k in claimed if k.lower() not in asked]
+                if keywords is not None or not new:
+                    minutes = int((allowed_at - self._clock.now()).total_seconds() // 60) + 1
+                    raise DiscoveryNotAllowed(
+                        f"GeM updates its listing every 15 minutes. Try again in {minutes} min.")
+                claimed = new
             self._fetcher.ensure_ready()  # contact set, breaker closed, daily budget left
             return claimed
         except SafetyError as error:

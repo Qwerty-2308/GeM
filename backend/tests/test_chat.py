@@ -88,7 +88,8 @@ def test_the_model_cannot_reset_the_safety_stop_or_set_the_contact_email(contain
     from gem_assistant.services.chat_tools import ChatTools
 
     names = {d["function"]["name"] for d in ChatTools(container).definitions}
-    assert names == {"get_profile", "propose_profile_update", "search_gem", "search_status", "list_bids",
+    # No get_profile: the profile is in the instructions, and a tool there is a round the model spends.
+    assert names == {"propose_profile_update", "search_gem", "search_status", "list_bids",
                      "get_bid", "add_bid_from_link", "safety_status"}
     assert "error" in ChatTools(container).call("reset_breaker", {}).data
 
@@ -99,7 +100,7 @@ def test_a_proposed_profile_change_is_shown_not_saved(container):
     result = ChatTools(container).call("propose_profile_update", {
         "add_products": ["office chair"], "annual_turnover_rupees": 5_000_000, "is_mse": True})
     assert container.profiles.get() is None
-    assert "not saved" in result.data["status"]
+    assert "Nothing is saved" in result.data["status"] and "starts the search" in result.data["status"]
     assert result.card["type"] == "profile_proposal"
     proposed = result.card["profile"]
     assert (proposed["categories"], proposed["annual_turnover_rupees"], proposed["is_mse"]) == (
@@ -197,6 +198,15 @@ def test_search_status_lists_what_the_last_search_found(container):
     assert (result.data["running"], result.data["his_products_found"]) == (False, [])
 
 
+def test_while_a_search_runs_its_status_gives_nothing_older_to_misreport(container):
+    """Asked straight after starting a search, the last search's results would read as this one's."""
+    from gem_assistant.services.chat_tools import ChatTools
+
+    with container.discovery._lock:  # a search in progress
+        result = ChatTools(container).call("search_status", {})
+    assert result.data["running"] is True and set(result.data) == {"running", "note"} and result.card is None
+
+
 def test_safety_status_never_shows_the_contact_email(container):
     from gem_assistant.services.chat_tools import ChatTools
 
@@ -257,6 +267,20 @@ def test_the_system_prompt_is_ours_whatever_the_page_sends(container):
     sent = model.sent[0]
     assert [m["role"] for m in sent] == ["system", "user"]
     assert "untrusted" in sent[0]["content"] and "reset the safety stop" not in sent[0]["content"]
+
+
+def test_the_model_is_told_the_saved_profile_with_every_question(container):
+    """So it needn't spend a round (and Groq tokens) asking, and knows what Confirm just saved."""
+    from gem_assistant.domain.models import SellerProfile
+
+    model = ScriptedModel(_says("ok"), _says("ok"))
+    _chat(container, model, [{"role": "user", "content": "hi"}])
+    assert "No profile saved yet" in model.sent[0][0]["content"]
+
+    container.profiles.save(SellerProfile(categories=["fire extinguisher", "chair"], annual_turnover_rupees=5_000_000))
+    _chat(container, model, [{"role": "user", "content": "hi"}])
+    system = model.sent[1][0]["content"]
+    assert "fire extinguisher" in system and "chair" in system and "5000000" in system
 
 
 def test_a_long_conversation_is_cut_at_one_of_his_messages(container):

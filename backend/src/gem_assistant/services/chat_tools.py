@@ -43,7 +43,6 @@ def _tool(name: str, description: str, properties: dict | None = None, required:
 
 _LIST = {"type": "array", "items": {"type": "string"}}
 DEFINITIONS = [
-    _tool("get_profile", "The seller's saved profile: products, words to ignore, turnover, experience, MSE status."),
     _tool("propose_profile_update",
           "Propose changes to the seller's profile. Nothing is saved: he sees the change and confirms it "
           "himself. Pass only the fields that change.",
@@ -57,11 +56,11 @@ DEFINITIONS = [
            "bid_order": {"type": "string", "enum": ["match", "closing"],
                          "description": "Download first: bids made mostly of his products, or closing soonest"}}),
     _tool("search_gem", "Start one search of GeM's public bid list for the products saved in his profile, and "
-                        "only those: if he names a product that isn't saved, propose adding it and search only "
-                        "after he has confirmed it. It takes a few minutes; the page shows the results by itself. "
-                        "Searches are at least 15 minutes apart."),
+                        "only those. If he names a product that isn't saved, call propose_profile_update with "
+                        "add_products instead: his Confirm saves it and starts its search. A search takes a few "
+                        "minutes; the page shows the results by itself."),
     _tool("search_status", "Whether a search is running, how the last one ended, and the bids of his products "
-                           "it found."),
+                           "it found. Not straight after search_gem: the search takes minutes."),
     _tool("list_bids", "Bids already downloaded and checked, with the verdict for each."),
     _tool("get_bid", "One checked bid in full: verdict, every reason with its page and quote, and the "
                      "values read from the document.", {"bid_id": {"type": "integer"}}, ("bid_id",)),
@@ -94,11 +93,12 @@ class ChatTools:
             return ToolResult({"error": f"Wrong arguments for {name}: {error}"})
 
     # ---- profile ----
-    def _get_profile(self) -> ToolResult:
+    def profile(self) -> dict[str, Any]:
+        """His saved profile, for the model's instructions (not a tool: that would cost a round)."""
         profile = self._c.profiles.get()
         if profile is None:
-            return ToolResult({"profile": None, "note": "No profile saved yet."})
-        return ToolResult({"profile": profile.model_dump(mode="json", exclude={"updated_at"})})
+            return {"profile": None, "note": "No profile saved yet."}
+        return {"profile": profile.model_dump(mode="json", exclude={"updated_at"})}
 
     def _propose_profile_update(self, add_products: Any = (), remove_products: Any = (),
                                 **changes: Any) -> ToolResult:
@@ -121,7 +121,9 @@ class ChatTools:
             return ToolResult({"error": f"That change isn't possible: {error.errors()[0]['msg']}"})
         self._proposed = True
         return ToolResult(
-            {"status": "Shown to him with a Confirm button; not saved until he clicks it.", "changes": changes},
+            {"status": "Shown to him with a Confirm button. Nothing is saved or searched yet: tell him that "
+                       "pressing Confirm saves it" + (" and starts the search." if add_products else "."),
+             "changes": changes},
             {"type": "profile_proposal", "changes": changes,
              "profile": proposed.model_dump(mode="json", exclude={"updated_at"})})
 
@@ -139,6 +141,8 @@ class ChatTools:
 
     def _search_status(self) -> ToolResult:
         status = self._c.discovery.status()
+        if status.running:  # the last search's results would read as this one's; the page follows it
+            return ToolResult({"running": True, "note": "Still searching GeM; the page shows the results when done."})
         last = status.last_run
         mine = [{"bid_number": e.bid_number, "items": (e.category or "")[:200],
                  "your_items": f"{e.matched_items} of {e.total_items}",

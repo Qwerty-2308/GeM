@@ -1,6 +1,6 @@
 // The app's one screen: a chat. The model answers in words; every figure he sees comes from
 // the cards, which are drawn from the pipeline's own data (verdict, reasons, page + quote).
-import { el, notice, verdictBadge, statusBadge, evidenceBlock, formatDateTime, clip } from "../dom.js";
+import { el, notice, verdictBadge, evidenceBlock, formatDateTime, clip } from "../dom.js";
 import { contactCard } from "./safety.js";
 
 const STORE = "gem-chat";
@@ -55,7 +55,15 @@ function listingsCard(card) {
       el("td", { title: l.items }, clip(l.items, 90)),
       el("td", {}, l.your_items),
       el("td", {}, formatDateTime(l.closes_at)),
-      el("td", {}, statusBadge(l.checked === "DOWNLOADED" ? "FOUND" : "NOT_FOUND"), l.note ? el("div", { class: "hint" }, l.note) : null))))));
+      el("td", {}, docBadge(l.checked), l.note ? el("div", { class: "hint" }, l.note) : null))))));
+}
+
+// "Not found" here read as "GeM had nothing"; most of these are simply not downloaded yet (5 a search).
+const DOC_STYLE = { DOWNLOADED: ["ok", "Checked"], PENDING: ["neutral", "Not yet"],
+  SKIPPED: ["neutral", "Skipped"], FAILED: ["bad", "Failed"] };
+function docBadge(status) {
+  const [cls, text] = DOC_STYLE[status] || ["neutral", status];
+  return el("span", { class: `badge ${cls}` }, text);
 }
 
 // Nothing the model proposes is saved until he clicks Confirm.
@@ -63,6 +71,8 @@ function proposalCard(card, api) {
   const status = el("div");
   const confirm = el("button", { type: "button" }, "Confirm");
   const cancel = el("button", { type: "button", class: "secondary" }, "Cancel");
+  // Tells the model what happened here, so the next question builds on it.
+  const note = (text) => status.dispatchEvent(new CustomEvent("chat-note", { bubbles: true, detail: text }));
   confirm.addEventListener("click", async () => {
     confirm.disabled = cancel.disabled = true;
     try {
@@ -71,6 +81,17 @@ function proposalCard(card, api) {
     } catch (error) {
       status.replaceChildren(notice("bad", error.message));
       confirm.disabled = cancel.disabled = false;
+      return;
+    }
+    if (!("products" in card.changes)) return note("He confirmed the profile change; it is saved.");
+    // He named products to find bids for: search now rather than make him ask a second time.
+    try {
+      await api.runDiscovery();
+      status.append(searchCard(api));
+      note("He confirmed the products; they are saved and a GeM search for them has started.");
+    } catch (error) {
+      status.append(notice("warn", `Saved, but the search didn't start: ${error.message}`));
+      note(`He confirmed the products; they are saved. The search didn't start: ${error.message}`);
     }
   });
   cancel.addEventListener("click", () => {
@@ -199,6 +220,10 @@ export async function renderChat(container, _params, api) {
     }
   };
 
+  log.addEventListener("chat-note", (event) => {
+    state.messages.push({ role: "assistant", content: event.detail });
+    save(state);
+  });
   form.addEventListener("submit", (event) => { event.preventDefault(); ask(); });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); ask(); }

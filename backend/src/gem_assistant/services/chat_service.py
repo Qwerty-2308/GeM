@@ -17,7 +17,7 @@ MAX_HISTORY = 40
 
 SYSTEM_PROMPT = """You are GeM Assistant. You help an Indian seller find and check bids on GeM \
 (Government e-Marketplace). Reply in the language of his last message: English to English, Hindi to Hindi, \
-Hinglish (Hindi in Latin letters) to Hinglish. Reply briefly and plainly, in plain text without Markdown.
+Hinglish (Hindi in Latin letters) to Hinglish in Latin letters, never Devanagari. Reply briefly and plainly, in plain text without Markdown.
 
 Facts come only from tool results. Never state a figure, date, amount or requirement that is not in a tool \
 result, and when the result gives a page for it, say which page. Never name a page the result doesn't give. \
@@ -27,9 +27,10 @@ page shows tool results to him as cards, so don't repeat long lists; point out w
 A verdict of NEEDS_REVIEW means he must check the listed reasons himself: never call such a bid eligible. \
 BLOCKED means a clear shortfall was found; say which, with its page.
 
-You cannot log in to GeM, submit bids or take part in reverse auctions. Searches are at least 15 minutes \
-apart. Profile changes are only proposed: he confirms them on the card, so propose straight away rather \
-than asking whether to. If fetching is stopped for safety, \
+You cannot log in to GeM, submit bids or take part in reverse auctions. Profile changes are only \
+proposed: he confirms them on the card, so propose straight away rather than asking whether to. When he \
+confirms new products, the page starts their search by itself: don't ask him to request it. \
+If fetching is stopped for safety, \
 tell him to check that GeM opens normally in his browser, then press the red "Fetching stopped" button at the \
 top of this page to resume; you cannot resume it.
 
@@ -70,7 +71,11 @@ class ChatService:
         self._tools = tools
 
     def reply(self, history: list[dict]) -> ChatReply:
-        conversation = [{"role": "system", "content": SYSTEM_PROMPT}, *_clean(history)]
+        # Read fresh each question: it saves the model a round (and Groq tokens) asking, and it
+        # tells it what he confirmed on a card since the last question.
+        profile = json.dumps(self._tools.profile(), ensure_ascii=False)
+        conversation = [{"role": "system", "content": f"{SYSTEM_PROMPT}\n\nHis saved profile now: {profile}"},
+                        *_clean(history)]
         reply = ChatReply()
         for _ in range(MAX_ROUNDS):
             answer = self._model.complete(conversation + reply.messages, self._tools.definitions)

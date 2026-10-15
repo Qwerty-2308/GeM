@@ -141,6 +141,18 @@ def test_runs_are_spaced_and_documents_never_downloaded_twice(app, transport, so
     assert len(transport.calls) == 1
 
 
+def test_a_product_added_since_the_last_search_is_searched_without_waiting(app, transport, source):
+    """The wait only stops asking GeM the same thing again before its listing changes."""
+    _queue_pdf(transport)
+    app.discovery.run()
+    app.profiles.save(SellerProfile(categories=["Pump", "Valve"]))
+    run = app.discovery.run()
+    assert run.outcome == "ok", run.message
+    assert source.calls[-1] == (["Valve"], 2)  # only what GeM hasn't been asked yet
+    with pytest.raises(DiscoveryNotAllowed, match="15 minutes"):
+        app.discovery.run()  # both asked within the last 15 minutes
+
+
 def test_block_during_download_stops_run_and_future_runs(app, transport, clock):
     transport.queue(status=403)
     run = app.discovery.run()

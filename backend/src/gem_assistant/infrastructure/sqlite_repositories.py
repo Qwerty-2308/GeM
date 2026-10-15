@@ -400,6 +400,14 @@ class SqliteDiscoveryRunStore:
                 (_iso(now), _iso(started_before)),
             ).rowcount
 
+    def keywords_since(self, since: datetime) -> list[str]:
+        """Every keyword GeM was asked about by runs started at or after `since`."""
+        with self._db.connect() as conn:
+            rows = conn.execute("""SELECT keywords_json FROM discovery_run
+                                   WHERE (requests > 0 OR finished_at IS NULL) AND started_at >= ?""",
+                                (_iso(since),)).fetchall()
+        return [k for r in rows for k in json.loads(r["keywords_json"])]
+
     def last(self, contacted_gem: bool = False) -> DiscoveryRun | None:
         where = "WHERE requests > 0 OR finished_at IS NULL" if contacted_gem else ""
         with self._db.connect() as conn:
