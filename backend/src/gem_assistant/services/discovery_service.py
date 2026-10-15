@@ -13,10 +13,10 @@ import re
 import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Callable
+from typing import Callable, Sequence
 
 from ..config import DiscoverySettings
-from ..domain.models import CorrigendumStatus, DiscoveryRun, ListingEntry
+from ..domain.models import CorrigendumStatus, DiscoveryRun, DocStatus, ListingEntry, SellerProfile, item_match
 from ..domain.ports import (
     Clock, CorrigendumWriter, DiscoveryRunStore, ListingRepository, ListingSource, ProfileReader,
 )
@@ -75,9 +75,13 @@ class DiscoveryService:
 
     def keywords(self) -> list[str]:
         profile = self._profiles.get()
+        return self.clean_keywords(profile.categories if profile else [])
+
+    def clean_keywords(self, raw: Sequence[str]) -> list[str]:
+        """GeM's own search-box rules, duplicates dropped, capped at max_keywords."""
         seen: dict[str, str] = {}
-        for raw in (profile.categories if profile else []):
-            keyword = " ".join(raw.split())
+        for item in raw:
+            keyword = " ".join(item.split())
             if len(keyword) < 3 or _INVALID_KEYWORD.search(keyword):
                 continue
             seen.setdefault(keyword.lower(), keyword)
@@ -96,40 +100,70 @@ class DiscoveryService:
             keywords=self.keywords(),
             last_run=self._runs.last(),
             next_allowed_at=self.next_allowed_at(),
-            listings=self._listings.recent(100),
+            listings=self._ranked(self._listings.recent(100), self._profiles.get()),
             settings=self._settings,
         )
+
+    @staticmethod
+    def _ranked(entries: list[ListingEntry], profile: SellerProfile | None) -> list[ListingEntry]:
+        """His products first: by share of the bid that is his ("match") or by closing
+        time ("closing"), then everything else in the order given. All his products count,
+        not just the few that are searched for."""
+        products, ignore = (profile.categories, profile.ignore_words) if profile else ([], [])
+        scored = []
+        for entry in entries:
+            hits, total = item_match(entry.category, products, ignore)
+            scored.append(entry.model_copy(update={"matched_items": hits, "total_items": total}))
+        if profile is None or profile.bid_order == "match":
+            key = lambda e: (not e.matched_items, -e.matched_items / max(e.total_items, 1))  # noqa: E731
+        else:
+            key = lambda e: (not e.matched_items, e.ends_at is None, e.ends_at or datetime.min)  # noqa: E731
+        return sorted(scored, key=key)  # stable: ties keep the repository's order
 
     # ---------- commands ----------
 
     def start_in_background(self, trigger: str = "manual") -> None:
         keywords = self._claim(trigger)
-        thread = threading.Thread(target=self._run_claimed, args=(trigger, keywords), daemon=True,
-                                  name="gem-discovery")
+        thread = threading.Thread(target=self._run_claimed, args=(trigger, keywords, self._execute),
+                                  daemon=True, name="gem-discovery")
         thread.start()
 
-    def run(self, trigger: str = "manual") -> DiscoveryRun:
-        keywords = self._claim(trigger)
-        return self._run_claimed(trigger, keywords)
+    def run(self, trigger: str = "manual", keywords: Sequence[str] | None = None,
+            execute: Callable[[DiscoveryRun], None] | None = None) -> DiscoveryRun:
+        """`keywords` and `execute` let another use case (the corpus) borrow this run's
+        guard rails — one run at a time, the 15-minute gap, the safety pre-check, the run
+        record and its error handling — instead of copying them. By default: the
+        profile's categories and the normal discovery steps."""
+        claimed = self._claim(trigger, keywords)
+        return self._run_claimed(trigger, claimed, execute or self._execute)
 
     # ---------- internals ----------
 
-    def _claim(self, trigger: str) -> list[str]:
+    def _claim(self, trigger: str, keywords: Sequence[str] | None = None) -> list[str]:
         """Check every precondition and take the single-run lock, or raise."""
         if not self._lock.acquire(blocking=False):
             raise DiscoveryNotAllowed("A search is already running.")
         try:
-            keywords = self.keywords()
-            if not keywords:
+            claimed = self.keywords() if keywords is None else self.clean_keywords(keywords)
+            if not claimed:
                 raise DiscoveryNotAllowed(
-                    "Add your product categories to the seller profile first; they are the search keywords.")
+                    "Add your product categories to the seller profile first; they are the search keywords."
+                    if keywords is None else
+                    "None of those keywords can be searched on GeM (3+ characters, no special characters).")
             allowed_at = self.next_allowed_at()
             if allowed_at and self._clock.now() < allowed_at:
-                minutes = int((allowed_at - self._clock.now()).total_seconds() // 60) + 1
-                raise DiscoveryNotAllowed(
-                    f"GeM updates its listing every 15 minutes. Try again in {minutes} min.")
-            self._fetcher.ensure_ready()  # breaker closed, daily budget left
-            return keywords
+                # The wait stops asking GeM the same thing before its listing changes. A product
+                # added since hasn't been asked about, so it is searched now, on its own.
+                gap = timedelta(minutes=self._settings.min_minutes_between_runs)
+                asked = {k.lower() for k in self._runs.keywords_since(self._clock.now() - gap)}
+                new = [k for k in claimed if k.lower() not in asked]
+                if keywords is not None or not new:
+                    minutes = int((allowed_at - self._clock.now()).total_seconds() // 60) + 1
+                    raise DiscoveryNotAllowed(
+                        f"GeM updates its listing every 15 minutes. Try again in {minutes} min.")
+                claimed = new
+            self._fetcher.ensure_ready()  # contact set, breaker closed, daily budget left
+            return claimed
         except SafetyError as error:
             self._lock.release()
             raise DiscoveryNotAllowed(str(error)) from error
@@ -137,15 +171,17 @@ class DiscoveryService:
             self._lock.release()
             raise
 
-    def _run_claimed(self, trigger: str, keywords: list[str]) -> DiscoveryRun:
+    def _run_claimed(self, trigger: str, keywords: list[str],
+                     execute: Callable[[DiscoveryRun], None]) -> DiscoveryRun:
         run = DiscoveryRun(trigger=trigger, started_at=self._clock.now(), keywords=keywords)
         sent_before = self._fetcher.requests_sent
         try:
             run.id = self._runs.start(run)
-            self._execute(run)
+            execute(run)
             run.outcome = "ok"
-            run.message = (f"Found {run.found} bids ({run.new} new); analysed {run.downloaded}; "
-                           f"checked {run.corrigenda_checked} for corrigenda.")
+            run.message = run.message or (
+                f"Found {run.found} bids ({run.new} new); analysed {run.downloaded}; "
+                f"checked {run.corrigenda_checked} for corrigenda.")
         except ListingRejected as error:
             self._breaker.trip(f"Listing search refused: {error}")
             run.outcome, run.message = "stopped", f"GeM refused the search ({error}). Fetching stopped."
@@ -173,17 +209,26 @@ class DiscoveryService:
             run.found += len(result.bids)
             run.new += len(self._listings.upsert(result.bids, result.keyword, now))
 
+        # GeM's search matches loosely ("office chair" also returns photo paper), and
+        # downloads are capped: spend them on bids made of his products, in his order.
+        ranked = self._ranked(self._listings.pending_downloads(10_000, now), self._profiles.get())
+        wanted = [e for e in ranked if e.matched_items]
+        for entry in ranked:
+            if not entry.matched_items:  # stays pending, so a product added later can still pick it up
+                self._listings.mark(entry.doc_id, DocStatus.PENDING, "None of its items is one of your products")
+
         analysed: dict[str, int] = {}  # doc_id -> bid_id, for the corrigendum pass
-        for entry in self._listings.pending_downloads(self._settings.max_downloads_per_run, now):
+        for entry in wanted[: self._settings.max_downloads_per_run]:
             result = self._fetch.fetch_listing_entry(entry)  # safety stops propagate and end the run
             if result is not None:
                 if result.downloaded:
                     run.downloaded += 1
                 analysed[entry.doc_id] = result.import_result.id
 
-        run.corrigenda_checked = self._check_corrigenda(analysed)
+        run.corrigenda_checked = self.check_corrigenda(analysed)
 
-    def _check_corrigenda(self, analysed: dict[str, int]) -> int:
+    def check_corrigenda(self, analysed: dict[str, int], limit: int | None = None,
+                         source: ListingSource | None = None) -> int:
         """Ask GeM whether the bids we just analysed were amended. One request each, so
         only the bids we actually analysed are checked — never every bid we listed.
 
@@ -191,10 +236,10 @@ class DiscoveryService:
         needs its own browser pass because the request carries a CSRF token that only
         the rendered listing page has (docs/02-RECON-FINDINGS.md §4).
         """
-        doc_ids = list(analysed)[: self._settings.max_corrigendum_checks_per_run]
+        doc_ids = list(analysed)[: self._settings.max_corrigendum_checks_per_run if limit is None else limit]
         if not doc_ids:
             return 0
-        found = self._source_factory().corrigenda(doc_ids)
+        found = (source or self._source_factory()).corrigenda(doc_ids)
         for doc_id, corrigendum in found.items():
             self._bids.set_corrigendum(analysed[doc_id], corrigendum)
         # Only count bids GeM actually answered for. A failed check is not a check, and

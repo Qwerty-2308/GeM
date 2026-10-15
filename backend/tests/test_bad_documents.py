@@ -105,12 +105,14 @@ def test_a_document_above_the_size_cap_is_refused(container):
 ])
 def test_a_hostile_file_name_never_becomes_a_path(container, tmp_path, hostile_name):
     """Bid numbers contain slashes by design, so a name from the portal must never be
-    used to build a path. Nothing is written to disk except the database."""
+    used to build a path. Nothing is written but the database and the PDF itself, kept
+    under its content hash."""
     before = {p for p in tmp_path.rglob("*") if p.is_file()}
     result = container.bid_import.import_pdf(_pdf(), source_name=hostile_name)
 
     stored = container.bid_query.get(result.id).bid
     assert stored.source_name == hostile_name  # kept as data, used as data
     after = {p for p in tmp_path.rglob("*") if p.is_file()}
-    assert after - before <= {container.settings.db_path}
+    kept = container.settings.data_dir / "documents" / f"{stored.sha256}.pdf"
+    assert after - before <= {container.settings.db_path, kept}
     assert not Path("/tmp/etc/passwd").exists()

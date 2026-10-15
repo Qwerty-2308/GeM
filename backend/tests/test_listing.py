@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import glob
+import json
 import os
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from gem_assistant.domain.models import BidKind, CorrigendumStatus, DocStatus
+from gem_assistant.domain.models import BidKind, CorrigendumStatus, DocStatus, item_match
 from gem_assistant.infrastructure.browser_listing import PlaywrightListingSource
 from gem_assistant.infrastructure.database import Database
 from gem_assistant.infrastructure.sqlite_repositories import SqliteListingRepository
@@ -17,7 +18,7 @@ from gem_assistant.parsing.listing_parser import (
 )
 from gem_assistant.safety.errors import BlockedByGeM, FetchingStopped
 
-from .conftest import ALL_BIDS_SHELL
+from .conftest import ALL_BIDS_SHELL, FIXTURES
 from .listing_fixtures import FakeGeM, make_doc, make_response
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -36,6 +37,25 @@ def test_parses_scalar_and_array_fields(arrays):
     assert bid.quantity == "11"
     # page shows these with getUTC*(): the value is India wall-clock time
     assert bid.ends_at == datetime(2026, 10, 20, 15, 0, tzinfo=IST)
+
+
+def test_item_list_is_merged_from_the_short_and_the_full_field():
+    """GeM's b_category_name lists each item once but stops at 99 characters;
+    bd_category_name repeats every line item and stops at 1024. Neither is whole alone."""
+    doc = make_doc(1, b_category_name=["Office Table,Office Ch"],
+                   bd_category_name=["Office Table,Office Table,Office Chair,Visitor Chair"],
+                   bbt_title=["Office Infra"])
+    (bid,) = parse_listing_response(make_response([doc])).bids
+    assert bid.category == "Office Table,Office Chair,Visitor Chair"
+
+
+def test_bid_title_is_not_counted_as_an_item():
+    """GeM's bid title often repeats the first item ("PLYWOOD GEN PURPOSE"). Glued onto the
+    last item it made a plywood-and-adhesive bid look all plywood."""
+    doc = make_doc(1, b_category_name=["Plywood,Adhesive"], bd_category_name=["Plywood,Adhesive"],
+                   bbt_title=["Plywood"])
+    (bid,) = parse_listing_response(make_response([doc])).bids
+    assert item_match(bid.category, ["plywood"]) == (1, 2)
 
 
 def test_reverse_auctions_are_marked_ra():
@@ -219,7 +239,7 @@ def test_full_discovery_run_with_real_browser(settings, clock, transport, tmp_pa
 
     from .conftest import SAMPLE_PDF
 
-    sample = make_doc(0, b_id=8506455, b_bid_number="GEM/2025/B/6819518",
+    sample = make_doc(0, b_id=8506455, b_bid_number="GEM/2025/B/6819518", b_category_name=["Clip Assy"],
                       final_end_date_sort="2025-11-14T12:00:00Z")
     gem = FakeGeM(
         ALL_BIDS_SHELL.read_bytes(),
@@ -247,3 +267,24 @@ def test_full_discovery_run_with_real_browser(settings, clock, transport, tmp_pa
     assert "extended to 20-11-2025" in assessed.bid.corrigendum.text
     assert any(r.rule == "corrigendum" for r in assessed.assessment.results)
     assert assessed.bid.found_value("bid_end") == "2025-11-14T12:00:00+05:30"  # unchanged by us
+
+
+@browser_test
+def test_real_corrigendum_fragments_are_kept_raw(container, tmp_path):
+    """Nobody has seen a real fragment's structure yet, so every one we meet is kept."""
+    body = b"<div><b>Bid end date</b> extended</div>"
+    gem = FakeGeM(ALL_BIDS_SHELL.read_bytes(), {}, corrigendum_bodies={"222": body})
+    src = PlaywrightListingSource(fetcher=container.fetcher, network=gem, executable_path=_chromium(),
+                                  timeout_seconds=20, save_corrigenda_to=tmp_path / "corr")
+    src.corrigenda(["111", "222"])  # 111 answers "0": nothing to keep
+    assert sorted(p.name for p in (tmp_path / "corr").iterdir()) == ["222.html"]
+    assert (tmp_path / "corr" / "222.html").read_bytes() == body
+
+
+def test_a_real_listing_response_parses():
+    """Captured in the first live run (11-Oct-2026; creator field redacted). Every field
+    arrives as a one-element list, which the parser already accepted."""
+    data = json.loads((FIXTURES / "all-bids-data_2026-10-11.json").read_text())
+    page = parse_listing_response(data)
+    assert (page.total_found, len(page.bids), page.skipped) == (231, 10, 0)
+    assert all(b.bid_number.startswith("GEM/") and b.doc_id.isdigit() and b.ends_at for b in page.bids)

@@ -96,7 +96,7 @@ def test_daily_budget_stops_requests(settings: Settings, clock, transport):
     (403, {}, b""),
     (429, {}, b""),
     (401, {}, b""),
-    (503, {}, b""),
+    (503, {}, b"<html>Please complete the CAPTCHA</html>"),  # a challenge, whatever its status
     (302, {"location": "https://sso.gem.gov.in/ARXSSO/oauth/doLogin"}, b""),
     (200, {}, b"<html>Please complete the CAPTCHA</html>"),
     (200, {}, b"<html>The requested URL was rejected. Your support ID is 123</html>"),
@@ -109,6 +109,18 @@ def test_warning_signs_trip_breaker_and_stop_everything(container: Container, tr
     with pytest.raises(FetchingStopped):
         container.fetcher.get(GOOD_URL)
     assert len(transport.calls) == 1  # the second call never left the machine
+
+
+@pytest.mark.parametrize("status", [500, 502, 503])
+def test_a_gem_server_error_ends_that_request_without_stopping_fetching(container: Container, transport, status):
+    # Blueprint §20: GeM down (5xx) stops the run. Only a block needs a person to clear it.
+    transport.queue(status=status)
+    with pytest.raises(UnexpectedResponse, match=f"HTTP {status}"):
+        container.fetcher.get(GOOD_URL)
+    assert len(transport.calls) == 1  # not retried
+
+    transport.queue()
+    container.fetcher.get(GOOD_URL)  # the next request still goes out
 
 
 def test_breaker_stays_open_after_restart(settings: Settings, clock, transport):
@@ -208,3 +220,75 @@ def test_html_where_json_expected_trips_breaker(container: Container):
     with pytest.raises(BlockedByGeM):
         container.fetcher.execute("https://bidplus.gem.gov.in/all-bids-data", "POST", lambda: page, Expect.JSON)
     assert container.safety.status().breaker.open
+
+
+def test_no_request_leaves_until_a_contact_email_is_set(settings, clock, transport):
+    from dataclasses import replace
+
+    from gem_assistant.config import PLACEHOLDER_CONTACT
+    from gem_assistant.safety.errors import MissingContactEmail
+
+    unset = replace(settings, safety=replace(settings.safety, contact_email=PLACEHOLDER_CONTACT))
+    c = Container.build(unset, clock=clock, transport=transport)
+    with pytest.raises(MissingContactEmail, match="Safety page"):
+        c.fetcher.get("https://bidplus.gem.gov.in/all-bids")
+    with pytest.raises(MissingContactEmail):
+        c.fetcher.ensure_ready()
+    assert transport.calls == []
+    assert c.safety.status().used_today == 0
+
+
+def test_plain_text_is_judged_by_shape_not_by_words():
+    robots = HttpResponse(url="", status=200, headers={}, body=b"User-agent: *\nDisallow: /captcha/\n")
+    page = HttpResponse(url="", status=200, headers={}, body=b"<!DOCTYPE html><html>Request Rejected</html>")
+    assert ResponseClassifier().classify(robots, Expect.TEXT).kind is ResponseKind.OK
+    assert ResponseClassifier().classify(page, Expect.TEXT).kind is ResponseKind.BLOCK
+
+
+@pytest.mark.parametrize("value", ["", "   "])
+def test_an_empty_contact_email_counts_as_unset(monkeypatch, value):
+    from gem_assistant.config import PLACEHOLDER_CONTACT
+
+    monkeypatch.setenv("GEM_CONTACT_EMAIL", value)
+    assert Settings.from_env().safety.contact_email == PLACEHOLDER_CONTACT
+
+
+def test_the_gap_holds_across_two_running_copies_of_the_app(settings, clock):
+    """The web app and a command-line search are separate processes sharing one database:
+    the second must wait for the first's request, not just for its own."""
+    from .conftest import FakeTransport
+
+    first_transport, second_transport = FakeTransport(), FakeTransport()
+    first = Container.build(settings, clock=clock, transport=first_transport)
+    second = Container.build(settings, clock=clock, transport=second_transport)  # started before any request
+    first_transport.queue(); second_transport.queue()
+
+    first.fetcher.get("https://bidplus.gem.gov.in/all-bids")
+    second.fetcher.get("https://bidplus.gem.gov.in/all-bids")
+
+    assert clock.slept == [settings.safety.min_interval_seconds]
+
+
+def test_only_one_copy_of_the_app_talks_to_gem_at_a_time(tmp_path):
+    """Two processes each hold their own thread lock; the file lock is what keeps them apart."""
+    import threading
+    from datetime import datetime, timezone
+
+    from gem_assistant.safety.rate_limiter import RateLimiter
+    from .conftest import FakeClock
+
+    clock = FakeClock(datetime(2026, 1, 1, tzinfo=timezone.utc))
+    a = RateLimiter(clock, 4.0, lock_path=tmp_path / "fetch.lock")
+    b = RateLimiter(clock, 4.0, lock_path=tmp_path / "fetch.lock")
+    entered = threading.Event()
+
+    def second():
+        with b.hold():
+            entered.set()
+
+    with a.hold():
+        thread = threading.Thread(target=second)
+        thread.start()
+        assert not entered.wait(0.3), "the second copy got in while the first held the lock"
+    assert entered.wait(2)
+    thread.join()

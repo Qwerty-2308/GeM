@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (incl. headless Chromium against the saved GeM page)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install exactly what uv.lock pins
+        run: uv sync --locked
+      - name: Install Chromium for the browser tests
+        run: uv run playwright install --with-deps chromium
+      - name: Run the tests (never contacts GeM)
+        run: uv run pytest -q
+
+  docker:
+    name: Website image builds, starts, needs a login, and runs Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Build the image
+        run: docker build -t gem-assistant .
+      - name: Headless Chromium launches inside the image
+        run: >
+          docker run --rm --entrypoint /app/.venv/bin/python gem-assistant -c
+          "from playwright.sync_api import sync_playwright as s; p = s().start(); b = p.chromium.launch();
+          print('chromium', b.version); b.close(); p.stop()"
+      - name: Without a password it refuses to start
+        run: |
+          set +e; docker run --rm gem-assistant; code=$?; set -e
+          test "$code" = 2
+      - name: The website starts and its API needs a login
+        run: |
+          docker run -d --name web -p 8080:8080 -e GEM_PASSWORD=ci-only-password-123 gem-assistant
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8080/api/session && break; sleep 1; done
+          echo
+          curl -s http://127.0.0.1:8080/ | grep -q "GeM Assistant"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/bids)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' \
+            -d '{"password":"ci-only-password-123"}' http://127.0.0.1:8080/api/login)" = 200
+      - name: Server log
+        if: always()
+        run: docker logs web || true
+
+  audit:
+    name: Known vulnerabilities in locked dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+      - name: pip-audit against uv.lock
+        run: |
+          uv export --locked --format requirements-txt --no-hashes --no-emit-project > "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit -r "$RUNNER_TEMP/requirements.txt" --disable-pip --no-deps --progress-spinner off

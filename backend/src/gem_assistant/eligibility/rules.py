@@ -6,14 +6,27 @@ write a new class with `name` and `evaluate()` and add it to DEFAULT_RULES.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Callable
 
 from ..domain.models import (
-    BidAnalysis, CorrigendumStatus, FieldStatus, RuleResult, SellerProfile, Verdict,
+    BidAnalysis, CorrigendumStatus, FieldStatus, RuleResult, SellerProfile, Verdict, item_match,
 )
 from ..parsing.clause_patterns import DEFAULT_CLAUSE_PATTERNS
 
 _BLOCKING_CATEGORIES = {p.category for p in DEFAULT_CLAUSE_PATTERNS if p.blocking_hint}
+
+
+def inr(rupees: int) -> str:
+    """25500000 -> '₹2,55,00,000' (Indian digit grouping)."""
+    digits = str(rupees)
+    head, tail = digits[:-3], digits[-3:]
+    groups: list[str] = []
+    while len(head) > 2:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    return "₹" + ",".join(part for part in (head, *groups, tail) if part)
 
 
 class ProfileRequiredRule:
@@ -27,17 +40,29 @@ class ProfileRequiredRule:
 
 
 class DeadlineRule:
+    """The bid document holds the original deadline, and a corrigendum can extend it — seen
+    live on 11-Oct-2026, when three bids whose PDFs said they closed on 5-7 Oct were open
+    until the 12th. So a passed deadline only blocks once GeM has confirmed there is no
+    corrigendum, and confirmed it after that deadline (an earlier answer cannot know about a
+    later extension). Otherwise the bid needs a look: skipping a live bid costs a bid."""
+
     name = "deadline"
 
     def evaluate(self, bid: BidAnalysis, profile: SellerProfile | None, now: datetime) -> list[RuleResult]:
-        end = bid.found_value("bid_end")
-        if end is None:
+        if bid.found_value("bid_end") is None:
             return []  # missing critical fields are handled by CriticalFieldsRule
         field = bid.field("bid_end")
-        if datetime.fromisoformat(end) <= now:
+        deadline = bid.deadline()  # GeM's listing, when later, carries any extension
+        if deadline > now:
+            return []
+        checked_at = bid.corrigendum.checked_at
+        if bid.corrigendum.status is CorrigendumStatus.NONE and checked_at is not None and checked_at >= deadline:
             return [RuleResult(rule=self.name, outcome=Verdict.BLOCKED,
                                reason="Bid has already closed.", evidence=field.evidence)]
-        return []
+        return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,
+                           reason="The deadline in the bid document has passed, but it may have been extended "
+                                  "by a corrigendum. Check the current deadline on GeM.",
+                           evidence=field.evidence)]
 
 
 class CriticalFieldsRule:
@@ -137,28 +162,71 @@ class EmdRule:
         if bid.found_value("emd_required") != "Yes":
             return []
         field = bid.field("emd_required")
+        amount = bid.found_value("emd_amount")
+        what = f"An EMD of {inr(int(amount))}" if amount else "EMD"
         note = " You're marked as an MSE; check whether the exemption applies." if profile and profile.is_mse else ""
         return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,
-                           reason=f"EMD is required for this bid.{note}", evidence=field.evidence)]
+                           reason=f"{what} is required for this bid.{note}", evidence=field.evidence)]
 
 
-class ExperienceTurnoverExemptionRule:
-    name = "experience_turnover_exemption"
+@dataclass(frozen=True)
+class _Requirement:
+    field: str              # the bid's stated minimum
+    profile_attr: str       # the seller's figure
+    mse_relaxation: str
+    startup_relaxation: str
+    what: str
+    show: Callable[[int], str]
+
+
+class TurnoverExperienceRule:
+    """Compares the bid's stated minimum turnover and experience with the seller profile.
+
+    Blocks only on a clear shortfall that no relaxation covers. Whatever it cannot decide — a
+    partial relaxation, a relaxation it could not read, a profile without the figure — is a
+    review, never a block: skipping a bid the seller could win costs a bid."""
+
+    name = "turnover_experience"
+
+    _REQUIREMENTS = (
+        _Requirement("min_avg_turnover", "annual_turnover_rupees", "mse_turnover_relaxation",
+                     "startup_turnover_relaxation", "average annual turnover (last 3 years)", inr),
+        _Requirement("min_experience_years", "years_experience", "mse_experience_relaxation",
+                     "startup_experience_relaxation", "years of experience", lambda n: f"{n} years"),
+    )
 
     def evaluate(self, bid: BidAnalysis, profile: SellerProfile | None, now: datetime) -> list[RuleResult]:
         if profile is None:
             return []
-        mse_exempt = bid.found_value("mse_exemption") == "Yes" and profile.is_mse
-        startup_exempt = bid.found_value("startup_exemption") == "Yes" and profile.is_startup
-        if mse_exempt or startup_exempt:
-            return []
-        if profile.annual_turnover_rupees is None or profile.years_experience is None:
-            field = bid.field("mse_exemption")
-            return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,
-                               reason="No experience/turnover exemption applies to you, and your profile is "
-                                      "missing turnover or years of experience.",
-                               evidence=field.evidence if field else None)]
-        return []
+        return [r for req in self._REQUIREMENTS if (r := self._check(req, bid, profile)) is not None]
+
+    def _check(self, req: _Requirement, bid: BidAnalysis, profile: SellerProfile) -> RuleResult | None:
+        field = bid.field(req.field)
+        if field is None or field.status is FieldStatus.NOT_FOUND:
+            return None
+        if field.status is not FieldStatus.FOUND:
+            return self._result(Verdict.NEEDS_REVIEW, f"The bid states a minimum {req.what} that couldn't be "
+                                                      "read reliably. Check it in the document.", field)
+        required = int(field.value)
+        applicable = [name for name, applies in ((req.mse_relaxation, profile.is_mse),
+                                                 (req.startup_relaxation, profile.is_startup)) if applies]
+        relaxations = {bid.found_value(name) for name in applicable}  # None = not found or unreadable
+        if "Yes" in relaxations:
+            return None
+        have = getattr(profile, req.profile_attr)
+        if have is None:
+            return self._result(Verdict.NEEDS_REVIEW, f"The bid requires a minimum {req.what} of "
+                                f"{req.show(required)}. Add yours to the seller profile to check it.", field)
+        if have >= required:
+            return None
+        shortfall = f"The bid requires a minimum {req.what} of {req.show(required)}; your profile says {req.show(have)}."
+        if relaxations - {"No"}:  # partial, or a relaxation for your category we couldn't read
+            return self._result(Verdict.NEEDS_REVIEW, f"{shortfall} A relaxation may apply to you (partial, or "
+                                                      "not readable here). Check the bid's terms.", field)
+        return self._result(Verdict.BLOCKED, shortfall, field)
+
+    def _result(self, outcome: Verdict, reason: str, field) -> RuleResult:
+        return RuleResult(rule=self.name, outcome=outcome, reason=reason, evidence=field.evidence)
 
 
 class CategoryMatchRule:
@@ -167,15 +235,22 @@ class CategoryMatchRule:
     def evaluate(self, bid: BidAnalysis, profile: SellerProfile | None, now: datetime) -> list[RuleResult]:
         if profile is None or not profile.categories:
             return []
-        haystack = " ".join(filter(None, [
-            bid.found_value("item_category"), bid.found_value("relevant_categories"),
-        ])).lower()
-        if any(c.lower() in haystack for c in profile.categories):
-            return []
-        field = bid.field("item_category")
-        return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,
-                           reason="Item doesn't match any category in your profile.",
-                           evidence=field.evidence if field else None)]
+        items = bid.field("item_category")
+        hits, total = item_match(bid.found_value("item_category"), profile.categories, profile.ignore_words)
+        if hits == 0 and not item_match(bid.found_value("relevant_categories"), profile.categories,
+                                        profile.ignore_words)[0]:
+            return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,
+                               reason="None of the items in this bid is one of your products.",
+                               evidence=items.evidence if items else None)]
+        method = bid.field("evaluation_method")
+        if 0 < hits < total and "total value" in (bid.found_value("evaluation_method") or "").lower():
+            # A reseller might source the rest, so this is a look, not a block.
+            mine = "1 is one of your products" if hits == 1 else f"{hits} are your products"
+            return [RuleResult(rule=self.name, outcome=Verdict.NEEDS_REVIEW,
+                               reason=f"This bid is judged on total value, so you must quote for all {total} "
+                                      f"items; {mine}.",
+                               evidence=method.evidence if method else None)]
+        return []
 
 
 DEFAULT_RULES = (
@@ -187,6 +262,6 @@ DEFAULT_RULES = (
     CorrigendumRule(),
     RestrictiveClauseRule(),
     EmdRule(),
-    ExperienceTurnoverExemptionRule(),
+    TurnoverExperienceRule(),
     CategoryMatchRule(),
 )

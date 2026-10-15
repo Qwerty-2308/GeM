@@ -13,10 +13,10 @@ import pytest
 from pydantic import ValidationError
 
 from gem_assistant.domain.models import (
-    BidAnalysis, Corrigendum, CorrigendumStatus, ExtractedField, FieldStatus,
+    BidAnalysis, Corrigendum, CorrigendumStatus, Evidence, ExtractedField, ExtractionMethod, FieldStatus,
 )
 from gem_assistant.domain.ports import HttpResponse
-from gem_assistant.eligibility.rules import CorrigendumRule
+from gem_assistant.eligibility.rules import CorrigendumRule, DeadlineRule
 from gem_assistant.infrastructure.browser_listing import PlaywrightListingSource
 from gem_assistant.parsing.corrigendum_parser import (
     MAX_TEXT_CHARS, html_to_text, parse_corrigendum_response,
@@ -229,3 +229,38 @@ def test_every_state_except_none_asks_for_a_look(status, expected):
     else:
         (result,) = results
         assert result.outcome.value == "NEEDS_REVIEW" and expected in result.reason
+
+
+def _closed_bid(corrigendum: Corrigendum) -> BidAnalysis:
+    """A bid whose document says it closed a week before AT."""
+    end = ExtractedField(
+        name="bid_end", label="Bid end date/time", status=FieldStatus.FOUND, critical=True,
+        value="2026-09-28T17:00:00+05:30",
+        evidence=Evidence(page=1, quote="/Bid End Date/Time 28-09-2026 17:00:00", method=ExtractionMethod.LABEL_PARSE),
+    )
+    return _bid(corrigendum).model_copy(update={"fields": [end]})
+
+
+@pytest.mark.parametrize("status, outcome", [
+    (CorrigendumStatus.NONE, "BLOCKED"),
+    (CorrigendumStatus.PRESENT, "NEEDS_REVIEW"),
+    (CorrigendumStatus.NOT_CHECKED, "NEEDS_REVIEW"),
+    (CorrigendumStatus.FAILED, "NEEDS_REVIEW"),
+])
+def test_a_passed_deadline_only_blocks_when_gem_confirms_no_corrigendum(status, outcome):
+    """Seen live on 11-Oct-2026: three bids whose PDFs said they closed on 5-7 Oct were
+    still open, extended by corrigenda. The document's date is the original deadline."""
+    text = "Bid end date extended" if status is CorrigendumStatus.PRESENT else None
+    bid = _closed_bid(Corrigendum(status=status, checked_at=AT, text=text))
+    (result,) = DeadlineRule().evaluate(bid, None, AT)
+    assert result.outcome.value == outcome
+    if outcome == "NEEDS_REVIEW":
+        assert "may have been extended" in result.reason
+
+
+def test_a_no_corrigendum_answer_from_before_the_deadline_cannot_block():
+    """GeM said "no corrigendum" on 20 Sep and the document's deadline was 28 Sep. An
+    extension published after that check would not be in the answer."""
+    early = Corrigendum(status=CorrigendumStatus.NONE, checked_at=datetime(2026, 9, 20, tzinfo=timezone.utc))
+    (result,) = DeadlineRule().evaluate(_closed_bid(early), None, AT)
+    assert result.outcome.value == "NEEDS_REVIEW" and "may have been extended" in result.reason

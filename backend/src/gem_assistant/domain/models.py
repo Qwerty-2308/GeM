@@ -2,10 +2,38 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import Enum
+from typing import Literal, Sequence
 
 from pydantic import BaseModel, Field, model_validator
+
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _stems(text: str) -> set[str]:
+    # ponytail: drops one trailing "s" only; "boxes" vs "box" still differ. Add a stemmer if it bites.
+    return {w.removesuffix("s") for w in _WORD.findall(text.lower())}
+
+
+def _names(item: str, keyword: str) -> bool:
+    """Every word of `keyword` is a word of `item`, ignoring case and a plural s.
+    "pen" is not in "Open Racks"; "chairs" is in "Office Chair"."""
+    words = _stems(keyword)
+    return bool(words) and words <= _stems(item)
+
+
+def item_match(text: str | None, keywords: Sequence[str], ignore: Sequence[str] = ()) -> tuple[int, int]:
+    """(items that name one of `keywords` and none of `ignore`, distinct items) in a
+    comma-separated GeM item list. Matching item by item keeps "Office Tables, Chair"
+    from counting as an office chair."""
+    # ponytail: GeM separates items with commas but a few item names hold commas too,
+    # which only makes a basket look bigger than it is.
+    items = list(dict.fromkeys(i.strip() for i in (text or "").split(",") if i.strip()))
+    hits = sum(1 for i in items
+               if any(_names(i, k) for k in keywords) and not any(_names(i, w) for w in ignore))
+    return hits, len(items)
 
 
 class FieldStatus(str, Enum):
@@ -116,6 +144,16 @@ class BidAnalysis(BaseModel):
     fields: list[ExtractedField]
     flags: list[ClauseFlag]
     corrigendum: Corrigendum = Field(default_factory=Corrigendum)
+    parser_version: int = 0  # which version of the field rules produced `fields`
+    # GeM's bid list's closing time, read on the latest search. Not stored with the bid:
+    # it is GeM's own current value and reflects any extension the PDF can't.
+    listed_end: datetime | None = None
+
+    def deadline(self) -> datetime | None:
+        """The later of the PDF's deadline and GeM's listing's."""
+        end = self.found_value("bid_end")
+        dates = [d for d in (datetime.fromisoformat(end) if end else None, self.listed_end) if d]
+        return max(dates) if dates else None
 
     def field(self, name: str) -> ExtractedField | None:
         return next((f for f in self.fields if f.name == name), None)
@@ -135,6 +173,10 @@ class SellerProfile(BaseModel):
     categories: list[str] = Field(default_factory=list)
     certifications: list[str] = Field(default_factory=list)
     states: list[str] = Field(default_factory=list)
+    # What to look for on GeM: items naming any of these words never count as his products,
+    # and which bids a search downloads first.
+    ignore_words: list[str] = Field(default_factory=list)
+    bid_order: Literal["match", "closing"] = "match"
     updated_at: datetime | None = None
 
 
@@ -206,6 +248,9 @@ class ListingEntry(ListingBid):
     doc_status: DocStatus
     doc_note: str | None = None
     bid_id: int | None = None
+    # Filled in for display from the current profile; not stored.
+    matched_items: int = 0
+    total_items: int = 0
 
 
 class DiscoveryRun(BaseModel):

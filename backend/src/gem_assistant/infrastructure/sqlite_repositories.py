@@ -51,6 +51,8 @@ class SqliteProfileRepository:
             categories=json.loads(row["categories_json"]),
             certifications=json.loads(row["certifications_json"]),
             states=json.loads(row["states_json"]),
+            ignore_words=json.loads(row["ignore_json"]),
+            bid_order=row["bid_order"],
             updated_at=_dt(row["updated_at"]),
         )
 
@@ -60,8 +62,8 @@ class SqliteProfileRepository:
                 """
                 INSERT INTO seller_profile (id, business_name, is_mse, is_startup, is_oem,
                     annual_turnover_rupees, years_experience, categories_json,
-                    certifications_json, states_json, updated_at)
-                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    certifications_json, states_json, ignore_json, bid_order, updated_at)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     business_name = excluded.business_name,
                     is_mse = excluded.is_mse,
@@ -72,6 +74,8 @@ class SqliteProfileRepository:
                     categories_json = excluded.categories_json,
                     certifications_json = excluded.certifications_json,
                     states_json = excluded.states_json,
+                    ignore_json = excluded.ignore_json,
+                    bid_order = excluded.bid_order,
                     updated_at = excluded.updated_at
                 """,
                 (
@@ -84,6 +88,8 @@ class SqliteProfileRepository:
                     json.dumps(profile.categories),
                     json.dumps(profile.certifications),
                     json.dumps(profile.states),
+                    json.dumps(profile.ignore_words),
+                    profile.bid_order,
                     _iso(profile.updated_at),
                 ),
             )
@@ -106,15 +112,18 @@ class SqliteBidRepository:
 
     def save(self, analysis: BidAnalysis) -> int:
         with self._db.connect() as conn:
+            if analysis.id is not None:  # re-analysis: replace in place, keeping the id
+                conn.execute("DELETE FROM bid WHERE id = ?", (analysis.id,))
             if analysis.bid_number:
                 # A newer document for the same bid (e.g. after a corrigendum) replaces the old one.
                 conn.execute("DELETE FROM bid WHERE bid_number = ?", (analysis.bid_number,))
             cursor = conn.execute(
-                """INSERT INTO bid (bid_number, doc_id, source_name, sha256, page_count, unread_lines,
+                """INSERT INTO bid (id, bid_number, doc_id, source_name, sha256, page_count, unread_lines,
                                     imported_at, corrigendum_status, corrigendum_checked_at,
-                                    corrigendum_text, corrigendum_note)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                    corrigendum_text, corrigendum_note, parser_version)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
+                    analysis.id,
                     analysis.bid_number,
                     analysis.doc_id,
                     analysis.source_name,
@@ -126,13 +135,15 @@ class SqliteBidRepository:
                     _iso(analysis.corrigendum.checked_at),
                     analysis.corrigendum.text,
                     analysis.corrigendum.note,
+                    analysis.parser_version,
                 ),
             )
             bid_id = cursor.lastrowid
-            if analysis.bid_number:
+            if analysis.bid_number or analysis.doc_id:
                 conn.execute(
-                    "UPDATE listing_bid SET doc_status = 'DOWNLOADED', doc_note = NULL, bid_id = ? WHERE bid_number = ?",
-                    (bid_id, analysis.bid_number),
+                    "UPDATE listing_bid SET doc_status = 'DOWNLOADED', doc_note = NULL, bid_id = ? "
+                    "WHERE bid_number = ? OR doc_id = ?",
+                    (bid_id, analysis.bid_number, analysis.doc_id),
                 )
             conn.executemany(
                 """INSERT INTO bid_field (bid_id, position, name, label, status, value, critical,
@@ -175,6 +186,10 @@ class SqliteBidRepository:
             flag_rows = conn.execute(
                 "SELECT * FROM bid_flag WHERE bid_id = ? ORDER BY position", (bid_id,)
             ).fetchall()
+            listed = conn.execute(
+                """SELECT ends_at FROM listing_bid WHERE bid_id = ? OR bid_number = ?
+                   ORDER BY last_seen_at DESC LIMIT 1""", (bid_id, row["bid_number"]),
+            ).fetchone()
 
         return BidAnalysis(
             id=row["id"],
@@ -207,6 +222,8 @@ class SqliteBidRepository:
                 text=row["corrigendum_text"],
                 note=row["corrigendum_note"],
             ),
+            parser_version=row["parser_version"],
+            listed_end=_dt(listed["ends_at"]) if listed else None,
         )
 
     def set_corrigendum(self, bid_id: int, corrigendum: Corrigendum) -> None:
@@ -373,6 +390,23 @@ class SqliteDiscoveryRunStore:
                 (_iso(run.finished_at), run.outcome, run.message, json.dumps(run.keywords),
                  run.found, run.new, run.downloaded, run.requests, run.corrigenda_checked, run.id),
             )
+
+    def close_interrupted(self, started_before: datetime, now: datetime) -> int:
+        with self._db.connect() as conn:
+            return conn.execute(
+                """UPDATE discovery_run SET finished_at = ?, outcome = 'failed',
+                       message = 'Interrupted: the app stopped during this search.'
+                   WHERE finished_at IS NULL AND started_at < ?""",
+                (_iso(now), _iso(started_before)),
+            ).rowcount
+
+    def keywords_since(self, since: datetime) -> list[str]:
+        """Every keyword GeM was asked about by runs started at or after `since`."""
+        with self._db.connect() as conn:
+            rows = conn.execute("""SELECT keywords_json FROM discovery_run
+                                   WHERE (requests > 0 OR finished_at IS NULL) AND started_at >= ?""",
+                                (_iso(since),)).fetchall()
+        return [k for r in rows for k in json.loads(r["keywords_json"])]
 
     def last(self, contacted_gem: bool = False) -> DiscoveryRun | None:
         where = "WHERE requests > 0 OR finished_at IS NULL" if contacted_gem else ""

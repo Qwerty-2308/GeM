@@ -6,7 +6,7 @@ import re
 from typing import Sequence
 
 from ..domain.models import ClauseFlag, Evidence, ExtractionMethod, PageText
-from .clause_patterns import ATTACHMENT_MARKER, DEFAULT_CLAUSE_PATTERNS, ClausePattern
+from .clause_patterns import ATTACHMENT_MARKER, DEFAULT_CLAUSE_PATTERNS, GEM_STANDARD_WORDING, ClausePattern
 from .normalizers import collapse_whitespace
 
 SECTION_START = re.compile(r"/Buyer Added Bid Specific Terms and Conditions", re.IGNORECASE)
@@ -30,6 +30,8 @@ class PatternClauseScanner:
                                       method=ExtractionMethod.PATTERN_SCAN),
                 ))
             for sentence in self._sentences(section_text):
+                if GEM_STANDARD_WORDING.search(sentence):
+                    continue
                 for p in self._patterns:
                     key = (p.category, sentence)
                     if key in seen or not p.pattern.search(sentence):

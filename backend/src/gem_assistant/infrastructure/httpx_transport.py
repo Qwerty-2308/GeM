@@ -5,10 +5,7 @@ from __future__ import annotations
 import httpx
 
 from ..domain.ports import HttpResponse
-
-
-class ResponseTooLarge(Exception):
-    pass
+from ..safety.errors import ResponseTooLarge
 
 
 class HttpxTransport:

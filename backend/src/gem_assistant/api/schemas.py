@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..domain.models import (
     BreakerState, ClauseFlag, Corrigendum, DiscoveryRun, ExtractedField, ListingEntry, RequestRecord,
@@ -34,7 +34,7 @@ class BidSummaryOut(BaseModel):
             item_category=bid.found_value("item_category"),
             organisation=bid.found_value("organisation"),
             ministry=bid.found_value("ministry"),
-            closes_at=bid.found_value("bid_end"),
+            closes_at=bid.deadline().isoformat() if bid.deadline() else None,
             verdict=item.assessment.verdict,
             review_count=item.assessment.review_count,
             imported_at=bid.imported_at,
@@ -80,6 +80,7 @@ class SafetyOut(BaseModel):
     budget: BudgetOut
     min_interval_seconds: float
     user_agent: str
+    contact_email: str | None
     recent_requests: list[RequestRecord]
     rules: list[str]
 
@@ -90,9 +91,14 @@ class SafetyOut(BaseModel):
             budget=BudgetOut(used_today=s.used_today, daily_limit=s.daily_limit),
             min_interval_seconds=s.min_interval_seconds,
             user_agent=s.user_agent,
+            contact_email=s.contact_email,
             recent_requests=s.recent_requests,
             rules=s.rules,
         )
+
+
+class ContactIn(BaseModel):
+    email: str
 
 
 class ResetIn(BaseModel):
@@ -102,6 +108,10 @@ class ResetIn(BaseModel):
 
 class FetchIn(BaseModel):
     link: str
+
+
+class ChatIn(BaseModel):
+    messages: list[dict] = Field(max_length=200)  # the server keeps only the recent ones anyway
 
 
 class FetchOut(BaseModel):

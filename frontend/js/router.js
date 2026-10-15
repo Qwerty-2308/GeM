@@ -19,7 +19,7 @@ export class Router {
   }
 
   async resolve() {
-    const path = location.hash.replace(/^#/, "") || "/bids";
+    const path = location.hash.replace(/^#/, "") || "/chat";
     for (const route of this.routes) {
       const match = path.match(route.regex);
       if (!match) continue;
@@ -29,7 +29,7 @@ export class Router {
       await route.view(this.container, params);
       return;
     }
-    location.hash = "#/bids";
+    location.hash = "#/chat";
   }
 
   #highlightNav(name) {

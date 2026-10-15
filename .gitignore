@@ -6,8 +6,10 @@ data/
 .env
 .env.*
 
-# python
+# python (the venv lives in .venv.nosync so iCloud skips it; .venv is a symlink)
+.venv
 .venv/
+*.nosync
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -15,3 +17,7 @@ __pycache__/
 
 # os
 .DS_Store
+
+# Secrets: the chat key lives in the data folder; never commit it if that folder is moved here
+groq-api-key.txt
+.env

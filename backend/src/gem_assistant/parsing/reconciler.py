@@ -7,6 +7,7 @@ happens the field becomes CONFLICTING. We never silently pick one side.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Protocol, Sequence
 
@@ -15,6 +16,16 @@ from ..domain.models import ClauseFlag, ExtractedField, FieldStatus
 
 class ConflictCheck(Protocol):
     def apply(self, fields: dict[str, ExtractedField], flags: Sequence[ClauseFlag]) -> None: ...
+
+
+# "Bidders can also submit the EMD with a Demand Draft..." (GeM's "Forms of EMD and PBG") and
+# exemption wording explain how EMD would be paid; they don't ask for it. An amount always does.
+_EXPLAINS = re.compile(r"\b(can|may)\s+(also\s+)?submit\b|\bexempt", re.IGNORECASE)
+_AMOUNT = re.compile(r"(\brs\b\.?|\binr\b|₹)\s*\d", re.IGNORECASE)
+
+
+def _demands(quote: str) -> bool:
+    return bool(_AMOUNT.search(quote)) or not _EXPLAINS.search(quote)
 
 
 @dataclass(frozen=True)
@@ -29,7 +40,7 @@ class FieldSaysNoButClauseMentions:
         field = fields.get(self.field_name)
         if field is None or field.status is not FieldStatus.FOUND or field.value != "No":
             return
-        clash = next((f for f in flags if f.category == self.flag_category), None)
+        clash = next((f for f in flags if f.category == self.flag_category and _demands(f.evidence.quote)), None)
         if clash is None:
             return
         fields[self.field_name] = field.model_copy(update={

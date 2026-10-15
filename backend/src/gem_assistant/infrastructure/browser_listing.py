@@ -153,6 +153,7 @@ class PlaywrightListingSource:
         executable_path: str | None = None,
         timeout_seconds: float = 60.0,
         save_raw_to: Path | None = None,
+        save_corrigenda_to: Path | None = None,
         playwright_factory: Callable[[], Any] | None = None,
         clock: Clock | None = None,
     ):
@@ -162,6 +163,7 @@ class PlaywrightListingSource:
         self._executable = executable_path
         self._timeout = timeout_seconds
         self._save_raw_to = save_raw_to
+        self._save_corrigenda_to = save_corrigenda_to
         self._playwright_factory = playwright_factory
         self._clock = clock or SystemClock()
 
@@ -256,6 +258,7 @@ class PlaywrightListingSource:
                 checked_at=self._clock.now(),
                 note=f"Could not check for a corrigendum: {type(error).__name__}: {error}",
             )
+        self._save_corrigendum(doc_id, response.body)
         return parse_corrigendum_response(response.body, self._clock.now())
 
     @staticmethod
@@ -323,6 +326,14 @@ class PlaywrightListingSource:
             return
         self._save_raw_to.parent.mkdir(parents=True, exist_ok=True)
         self._save_raw_to.write_text(json.dumps(raw, ensure_ascii=False, indent=1))
+
+    def _save_corrigendum(self, doc_id: str, body: bytes) -> None:
+        """Keep a real fragment exactly as GeM sent it — its structure has never been
+        captured (docs/02-RECON-FINDINGS.md §4). "0"/empty mean "none" and are not kept."""
+        if self._save_corrigenda_to is None or body.strip() in (b"", b"0") or not doc_id.isdigit():
+            return
+        self._save_corrigenda_to.mkdir(parents=True, exist_ok=True)
+        (self._save_corrigenda_to / f"{doc_id}.html").write_bytes(body)
 
 
 def _default_playwright():

@@ -14,11 +14,12 @@ from __future__ import annotations
 
 from typing import Callable
 
+from ..config import PLACEHOLDER_CONTACT
 from ..domain.models import RequestRecord
 from ..domain.ports import Clock, HttpResponse, HttpTransport, RequestLog
 from .circuit_breaker import CircuitBreaker
 from .daily_budget import DailyBudget
-from .errors import BlockedByGeM, UnexpectedResponse
+from .errors import BlockedByGeM, MissingContactEmail, ResponseTooLarge, UnexpectedResponse
 from .rate_limiter import RateLimiter
 from .response_classifier import Expect, ResponseClassifier, ResponseKind
 from .url_policy import UrlPolicy
@@ -57,7 +58,8 @@ class SafeFetcher:
     def execute(
         self, url: str, method: str, perform: Callable[[], HttpResponse], expect: Expect
     ) -> HttpResponse:
-        with self._limiter.lock:  # one request at a time, ever
+        with self._limiter.hold():  # one request at a time, across every running copy
+            self._ensure_contact()
             self._breaker.ensure_closed()
             self._policy.check(url, method)
             self._budget.ensure_available()
@@ -67,6 +69,9 @@ class SafeFetcher:
             self.requests_sent += 1
             try:
                 response = perform()
+            except ResponseTooLarge:  # the transport stopped reading at the size cap
+                self._record(label, None, "too_large")
+                raise
             except Exception as error:  # network failure: log it, never retry automatically
                 self._record(label, None, f"network_error: {type(error).__name__}")
                 raise
@@ -81,14 +86,21 @@ class SafeFetcher:
             if result.kind is ResponseKind.BLOCK:
                 self._breaker.trip(f"{result.reason} — {label}")
                 raise BlockedByGeM(result.reason)
-            if result.kind is ResponseKind.NOT_FOUND:
+            if result.kind in (ResponseKind.NOT_FOUND, ResponseKind.SERVER_ERROR):
                 raise UnexpectedResponse(result.reason)
             return response
 
     def ensure_ready(self) -> None:
-        """Cheap pre-check before starting a run: breaker closed and budget left."""
+        """Cheap pre-check before starting a run: contact set, breaker closed, budget left."""
+        self._ensure_contact()
         self._breaker.ensure_closed()
         self._budget.ensure_available()
+
+    def _ensure_contact(self) -> None:
+        if PLACEHOLDER_CONTACT in self.user_agent:
+            raise MissingContactEmail(
+                "Add your contact email on the Safety page first: every request names a contact "
+                "so GeM can reach you.")
 
     def _record(self, url: str, status: int | None, outcome: str) -> None:
         self._log.record(RequestRecord(at=self._clock.now(), url=url, status=status, outcome=outcome))

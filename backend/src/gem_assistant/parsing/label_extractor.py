@@ -19,14 +19,15 @@ class LabelFieldExtractor:
     def _apply(rule: FieldRule, pages: Sequence[PageText]) -> ExtractedField:
         base = {"name": rule.name, "label": rule.label, "critical": rule.critical}
         for page in pages:
-            match = rule.pattern.search(page.text)
-            if not match:
-                continue
-            evidence = Evidence(page=page.number, quote=match.group(0), method=ExtractionMethod.LABEL_PARSE)
-            try:
-                value = rule.normalize(match.group("value"))
-            except ValueError as error:
-                return ExtractedField(**base, status=FieldStatus.UNCLEAR, evidence=evidence,
-                                      note=f"Label found but value could not be read: {error}")
-            return ExtractedField(**base, status=FieldStatus.FOUND, value=value, evidence=evidence)
+            for pattern, normalize in rule.layouts():
+                match = pattern.search(page.text)
+                if not match:
+                    continue
+                evidence = Evidence(page=page.number, quote=match.group(0), method=ExtractionMethod.LABEL_PARSE)
+                try:
+                    value = normalize(match.group("value"))
+                except ValueError as error:
+                    return ExtractedField(**base, status=FieldStatus.UNCLEAR, evidence=evidence,
+                                          note=f"Label found but value could not be read: {error}")
+                return ExtractedField(**base, status=FieldStatus.FOUND, value=value, evidence=evidence)
         return ExtractedField(**base, status=FieldStatus.NOT_FOUND)

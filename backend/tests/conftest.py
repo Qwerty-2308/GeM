@@ -51,6 +51,16 @@ class FakeTransport:
         return item
 
 
+@pytest.fixture(autouse=True)
+def _never_the_real_data_folder(monkeypatch, tmp_path_factory):
+    """Settings.from_env() reads <data folder>/.env. No test may pick up the owner's real secrets
+    (and then call Groq or Google with them), whatever this machine has set."""
+    monkeypatch.setenv("GEM_DATA_DIR", str(tmp_path_factory.mktemp("data")))
+    for name in ("GROQ_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GEM_ALLOWED_EMAILS",
+                 "GEM_PASSWORD", "GEM_CONTACT_EMAIL", "GEM_SECRET_KEY"):
+        monkeypatch.delenv(name, raising=False)
+
+
 @pytest.fixture
 def clock() -> FakeClock:
     return FakeClock(datetime(2025, 11, 1, 6, 0, tzinfo=timezone.utc))

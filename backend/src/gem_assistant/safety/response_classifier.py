@@ -13,6 +13,7 @@ class ResponseKind(str, Enum):
     OK = "ok"
     NOT_FOUND = "not_found"   # normal failure, no trip
     BLOCK = "block"           # warning sign, trip the breaker
+    SERVER_ERROR = "server_error"  # GeM itself failed: end this request, no trip (blueprint §20)
 
 
 class Expect(str, Enum):
@@ -24,6 +25,9 @@ class Expect(str, Enum):
     # A snippet of page content, not a whole page. Its words are written by buyers, so it
     # is judged by shape rather than by vocabulary — see classify().
     HTML_FRAGMENT = "html_fragment"
+    # Plain text such as robots.txt. Like a fragment, judged by shape: a robots file may
+    # legitimately list a path like /captcha/.
+    TEXT = "text"
 
 
 @dataclass(frozen=True)
@@ -60,7 +64,13 @@ class ResponseClassifier:
         if status in BLOCK_STATUSES:
             return Classification(ResponseKind.BLOCK, f"GeM answered HTTP {status}")
         if status >= 500:
-            return Classification(ResponseKind.BLOCK, f"GeM server error HTTP {status}")
+            # GeM down stops the run but needs no person to clear it; a challenge page sent with
+            # a 5xx is still a block.
+            marker = _challenge_marker(response)
+            if marker:
+                return Classification(ResponseKind.BLOCK, f"Page looks like a challenge or block page ('{marker}')")
+            return Classification(ResponseKind.SERVER_ERROR,
+                                  f"GeM's server had an error (HTTP {status}). Not retried; try again later")
         if 300 <= status < 400:
             location = response.headers.get("location", "?")
             return Classification(ResponseKind.BLOCK, f"Unexpected redirect to {location} (possible login wall)")
@@ -85,7 +95,7 @@ class ResponseClassifier:
 
         head = response.body[:65536].decode("utf-8", errors="ignore").lower()
 
-        if expect is Expect.HTML_FRAGMENT:
+        if expect in (Expect.HTML_FRAGMENT, Expect.TEXT):
             # Buyers write this text, and a corrigendum may legitimately say "access
             # denied to unempanelled vendors" or name a CAPTCHA product. Matching on those
             # words would stop all fetching over an ordinary sentence. A real challenge or
@@ -96,7 +106,12 @@ class ResponseClassifier:
                                       "(possible challenge or block page)")
             return Classification(ResponseKind.OK, "fragment")
 
-        for marker in CHALLENGE_MARKERS:
-            if marker in head:
-                return Classification(ResponseKind.BLOCK, f"Page looks like a challenge or block page ('{marker}')")
+        marker = _challenge_marker(response)
+        if marker:
+            return Classification(ResponseKind.BLOCK, f"Page looks like a challenge or block page ('{marker}')")
         return Classification(ResponseKind.OK, "ok")
+
+
+def _challenge_marker(response: HttpResponse) -> str | None:
+    head = response.body[:65536].decode("utf-8", errors="ignore").lower()
+    return next((marker for marker in CHALLENGE_MARKERS if marker in head), None)

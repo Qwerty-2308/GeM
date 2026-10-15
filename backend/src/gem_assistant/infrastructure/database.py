@@ -126,6 +126,17 @@ MIGRATIONS: list[str] = [
     ALTER TABLE bid ADD COLUMN corrigendum_note TEXT;
     ALTER TABLE discovery_run ADD COLUMN corrigenda_checked INTEGER NOT NULL DEFAULT 0;
     """,
+    # 4 — which version of the field rules analysed each bid. Everything stored before this
+    # was analysed by version 1, and is re-read when its PDF is available.
+    """
+    ALTER TABLE bid ADD COLUMN parser_version INTEGER NOT NULL DEFAULT 1;
+    """,
+    # 5 — what to look for on GeM: words that take an item out of his products, and which
+    # bids a search downloads first ("match": mostly his products; "closing": soonest).
+    """
+    ALTER TABLE seller_profile ADD COLUMN ignore_json TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE seller_profile ADD COLUMN bid_order TEXT NOT NULL DEFAULT 'match';
+    """,
 ]
 
 
@@ -135,7 +146,8 @@ class Database:
 
     @contextmanager
     def connect(self) -> Iterator[sqlite3.Connection]:
-        conn = sqlite3.connect(self.path)
+        # Waits up to 30 s for another writer (web threads and a search run share the file).
+        conn = sqlite3.connect(self.path, timeout=30)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         try:
@@ -148,12 +160,20 @@ class Database:
             conn.close()
 
     def migrate(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.path.parent.exists():  # ours to create: seller data, owner-only
+            self.path.parent.mkdir(mode=0o700, parents=True)
         with self.connect() as conn:
+            # Readers never block the writer and vice versa. Persistent once set.
+            conn.execute("PRAGMA journal_mode = WAL")
             version = conn.execute("PRAGMA user_version").fetchone()[0]
             for index, script in enumerate(MIGRATIONS[version:], start=version + 1):
-                conn.executescript(script)
-                conn.execute(f"PRAGMA user_version = {index}")
+                # One transaction per migration, version bump included: a failure part-way
+                # leaves the database as it was, and the next start simply retries.
+                try:
+                    conn.executescript(f"BEGIN;\n{script}\nPRAGMA user_version = {index};\nCOMMIT;")
+                except sqlite3.Error:
+                    conn.rollback()
+                    raise
         try:
             self.path.chmod(0o600)  # seller data: owner-only
         except OSError:

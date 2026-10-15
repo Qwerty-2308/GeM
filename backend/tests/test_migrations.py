@@ -106,3 +106,31 @@ def test_upgrading_twice_is_harmless(old_database):
     Database(old_database).migrate()  # e.g. the app restarting
     assert _version(old_database) == len(database_module.MIGRATIONS)
     assert SqliteBidRepository(Database(old_database)).get(1) is not None
+
+
+def test_a_migration_that_fails_halfway_changes_nothing(tmp_path, monkeypatch):
+    """An upgrade interrupted by an error must leave the database exactly as it was, so the
+    next start can run it again instead of tripping over a half-applied change."""
+    path = tmp_path / "db.sqlite3"
+    Database(path).migrate()
+    before = _version(path)
+    broken = "CREATE TABLE half_done (a INTEGER); CREATE TABLE broken (;"
+    monkeypatch.setattr(database_module, "MIGRATIONS", [*database_module.MIGRATIONS, broken])
+    with pytest.raises(sqlite3.Error):
+        Database(path).migrate()
+    assert _version(path) == before
+    with sqlite3.connect(path) as conn:
+        assert conn.execute("SELECT name FROM sqlite_master WHERE name = 'half_done'").fetchone() is None
+
+
+def test_the_database_uses_write_ahead_logging(tmp_path):
+    """The web server's threads and a running search write at the same time."""
+    path = tmp_path / "db.sqlite3"
+    Database(path).migrate()
+    with sqlite3.connect(path) as conn:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+def test_bids_from_before_this_version_are_marked_for_re_reading(old_database):
+    Database(old_database).migrate()
+    assert SqliteBidRepository(Database(old_database)).get(1).parser_version == 1

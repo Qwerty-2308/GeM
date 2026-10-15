@@ -51,7 +51,17 @@ export class ApiClient {
   getProfile() { return this.#request("/profile"); }
   saveProfile(profile) { return this.#json("PUT", "/profile", profile); }
 
+  // ---- login (website mode) ----
+  getSession() { return this.#request("/session"); }
+  login(password) { return this.#json("POST", "/login", { password }); }
+  logout() { return this.#request("/logout", { method: "POST" }); }
+
+  // ---- chat ----
+  chatStatus() { return this.#request("/chat"); }
+  chat(messages) { return this.#json("POST", "/chat", { messages }); }
+
   // ---- safety ----
   getSafety() { return this.#request("/safety"); }
+  setContactEmail(email) { return this.#json("PUT", "/safety/contact", { email }); }
   resetBreaker(note) { return this.#json("POST", "/safety/reset", { confirmed: true, note }); }
 }

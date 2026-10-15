@@ -1,0 +1,31 @@
+# Fly.io, Mumbai. Secrets are not here: set them with `fly secrets set` (README, "Run it as a website").
+# App names are global on Fly: change this one if it is taken.
+app = "gem-assistant-chat"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  # Public by design (Google shows it in every sign-in link). The client secret is NOT here:
+  # `fly secrets set GOOGLE_CLIENT_SECRET=...`.
+  GOOGLE_CLIENT_ID = "136170171534-adeerauboso2dfkum26agp6r5542evg5.apps.googleusercontent.com"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Always on: a GeM search runs in the background for minutes and must not be stopped midway.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+# The database, kept bid PDFs and logins. Exactly one machine may use it.
+[[mounts]]
+  source = "gem_data"
+  destination = "/data"
+
+[[vm]]
+  memory = "1gb"   # headless Chromium needs room
+  cpu_kind = "shared"
+  cpus = 1

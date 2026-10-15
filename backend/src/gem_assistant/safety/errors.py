@@ -20,3 +20,11 @@ class BlockedByGeM(SafetyError):
 
 class UnexpectedResponse(SafetyError):
     """A non-200 answer that is not a block (e.g. 404). Not retried."""
+
+
+class MissingContactEmail(SafetyError):
+    """No contact email is set, so GeM could not reach whoever runs this tool."""
+
+
+class ResponseTooLarge(UnexpectedResponse):
+    """The size cap was hit while downloading. One document's problem, not a block."""

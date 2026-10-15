@@ -1,0 +1,892 @@
+{
+ "status": 1,
+ "code": 200,
+ "message": "Bid result",
+ "response": {
+  "response": {
+   "numFound": 231,
+   "start": 10,
+   "numFoundExact": true,
+   "docs": [
+    {
+     "id": "9950751",
+     "b_id": [
+      9950751
+     ],
+     "b_bid_number": [
+      "GEM/2026/B/8087109"
+     ],
+     "b_category_name": [
+      "Tab chlorzoxazone 500mg plus diclofenac 50mg plus paracetamol 300mg,Cap probiotic,Inj ondansetron 2"
+     ],
+     "b_total_quantity": [
+      68076
+     ],
+     "b_status": [
+      1
+     ],
+     "b_bid_type": [
+      1
+     ],
+     "b_is_bunch": [
+      43
+     ],
+     "b_type": [
+      0
+     ],
+     "b_bid_to_ra": [
+      0
+     ],
+     "b_buyer_status": [
+      0
+     ],
+     "b_eval_type": [
+      0
+     ],
+     "final_start_date_sort": [
+      "2026-09-26T13:05:14Z"
+     ],
+     "final_end_date_sort": [
+      "2026-10-12T13:00:00Z"
+     ],
+     "bd_category_name": [
+      "Tab chlorzoxazone 500mg plus diclofenac 50mg plus paracetamol 300mg,Cap probiotic,Inj ondansetron 2mg per ml ampule of 4ml,Inj adrenaline tartrate 1ml amplue,Inj labetalol hcl 5mg per ml ampule of 4 ml,Inj lorazepam 2mg per ml ampule of 2 ml,Inj diazepam 10mg per ml ampule of 2 ml,Inj pheneramine malate 22 point 75 mg per ml ampule of 2 ml,Inj paracetamol 150mg per ml ampule of 2 ml,Inj dexamethasone ampule of 2ml,Inj dicyclomine hcl 20mg,Inj typhoid polysaccharide,Inj tetanus toxoid 0 point 5 ml,Tab betahistine 8mg,Tab etoricoxib 90mg,Tab fluconazole 150mg,Tab nitrofurantoin 100mg,Tab trypsin with chymotrypsin,Tab ondanseteron 8mg,Tab albendazole 400mg,Tab alprazolam 0 point 25 mg,Tab common cold,Tab calcium carbonate 500mg with vitamin d3 250iu,Inj lignocaine 2 percent without adrenaline 30 ml vial,Inj lignocaine 2 percent with adrenaline 30 ml vial,Lignocaine jelly 2 percent tube of 30 gm,Flurbiprofen sodium eye drop,Moxifloxacin zero point five percent eye drop,Dexamethasone eye drop,Ciprofloxacin hcl plu"
+     ],
+     "b_is_custom_item": [
+      0
+     ],
+     "bbt_title": [
+      "MEDICINE"
+     ],
+     "is_high_value": [
+      false
+     ],
+     "b_ra_to_bid": [
+      1
+     ],
+     "b_is_inactive": [
+      0
+     ],
+     "b_cat_id": [
+      "home_boq_boql_boql_boq"
+     ],
+     "b.b_created_by": [
+      "redacted"
+     ],
+     "ba_is_single_packet": [
+      0
+     ],
+     "ba_is_global_tendering": [
+      0
+     ],
+     "is_rc_bid": [
+      0
+     ],
+     "ba_official_details_minName": [
+      "Ministry of Defence"
+     ],
+     "ba_official_details_deptName": [
+      "Department of Military Affairs"
+     ],
+     "bd_details_is_boq": [
+      true
+     ],
+     "bd_details_new_boq": [
+      true
+     ],
+     "bid_schedule": [],
+     "parent_bid_schedule": []
+    },
+    {
+     "id": "9973413",
+     "b_id": [
+      9973413
+     ],
+     "b_bid_number": [
+      "GEM/2026/B/8106946"
+     ],
+     "b_category_name": [
+      "Sumatriptan 50 mg Tab,Topiramate 25 mg Tab,Salmeterol 25 mcg plus Fluticasone 250 mcg Autohaler,Dia"
+     ],
+     "b_total_quantity": [
+      5066
+     ],
+     "b_status": [
+      1
+     ],
+     "b_bid_type": [
+      1
+     ],
+     "b_is_bunch": [
+      19
+     ],
+     "b_type": [
+      0
+     ],
+     "b_bid_to_ra": [
+      0
+     ],
+     "b_buyer_status": [
+      0
+     ],
+     "b_eval_type": [
+      0
+     ],
+     "final_start_date_sort": [
+      "2026-10-01T12:47:23Z"
+     ],
+     "final_end_date_sort": [
+      "2026-10-12T13:00:00Z"
+     ],
+     "bd_category_name": [
+      "Sumatriptan 50 mg Tab,Topiramate 25 mg Tab,Salmeterol 25 mcg plus Fluticasone 250 mcg Autohaler,Diacerein 50 mg Tab,Insulin Analogue long acting basal plus long acting GLP 1 analogue in PFS oblique PFP Inj,Albendazole Syp each 5 ml containing 200 mg bott of 10 ml,Sitagliptin 50 mg Metformin 500 mg Tab,Ivermectin Tab 6mg,Diethylcarbamazine 50mg Tab,Inj Cefotaxime Sodium 500 mg Vial,Tab Artesunate 25 mg plus Sulphadoxine 250 mg plus,Ethambutol 200 mg Tab,Clotrimazole mouth paint 1 percent bottle of 15 ml,Roxithromycin 150 mg Tab,Fluconazole 150 mg Cap oblique Tab,Montelukast 10 mg plus Levocetirizine 5 mg combination Tab,Promethazine Syp 5 mg 5 ml bott of 60 ml,Pregabalin 75 mg plus Methylcobalamine 1500 mcg Tab,Pheniramine Maleate 25 mg Tab"
+     ],
+     "b_is_custom_item": [
+      0
+     ],
+     "bbt_title": [
+      "Medicine Store"
+     ],
+     "is_high_value": [
+      false
+     ],
+     "b_ra_to_bid": [
+      1
+     ],
+     "b_is_inactive": [
+      0
+     ],
+     "b_cat_id": [
+      "home_boq_boql_boql_boq"
+     ],
+     "b.b_created_by": [
+      "redacted"
+     ],
+     "ba_is_single_packet": [
+      0
+     ],
+     "ba_is_global_tendering": [
+      0
+     ],
+     "is_rc_bid": [
+      0
+     ],
+     "ba_official_details_minName": [
+      "Ministry of Defence"
+     ],
+     "ba_official_details_deptName": [
+      "Department of Military Affairs"
+     ],
+     "bd_details_is_boq": [
+      true
+     ],
+     "bd_details_new_boq": [
+      true
+     ],
+     "bid_schedule": [],
+     "parent_bid_schedule": []
+    },
+    {
+     "id": "9939006",
+     "b_id": [
+      9939006
+     ],
+     "b_bid_number": [
+      "GEM/2026/B/8076868"
+     ],
+     "b_category_name": [
+      "Isapgol or Ispaghula husk 3.5 gm,Nitrofurantoin 100mg,Ranolazine 500 mg,Antispasmodic Tab containin"
+     ],
+     "b_total_quantity": [
+      27600
+     ],
+     "b_status": [
+      1
+     ],
+     "b_bid_type": [
+      1
+     ],
+     "b_is_bunch": [
+      7
+     ],
+     "b_type": [
+      0
+     ],
+     "b_bid_to_ra": [
+      0
+     ],
+     "b_buyer_status": [
+      0
+     ],
+     "b_eval_type": [
+      1
+     ],
+     "final_start_date_sort": [
+      "2026-10-01T12:53:24Z"
+     ],
+     "final_end_date_sort": [
+      "2026-10-12T13:00:00Z"
+     ],
+     "bd_category_name": [
+      "Isapgol or Ispaghula husk 3.5 gm,Isapgol or Ispaghula husk 3.5 gm,Isapgol or Ispaghula husk 3.5 gm,Isapgol or Ispaghula husk 3.5 gm,Isapgol or Ispaghula husk 3.5 gm,Isapgol or Ispaghula husk 3.5 gm,Isapgol or Ispaghula husk 3.5 gm,Nitrofurantoin 100mg,Nitrofurantoin 100mg,Nitrofurantoin 100mg,Nitrofurantoin 100mg,Nitrofurantoin 100mg,Nitrofurantoin 100mg,Nitrofurantoin 100mg,Ranolazine 500 mg,Ranolazine 500 mg,Ranolazine 500 mg,Ranolazine 500 mg,Ranolazine 500 mg,Ranolazine 500 mg,Ranolazine 500 mg,Antispasmodic Tab containing Mefenamic Acid 250 mg and Dicyclomine HCL 10 mg,Antispasmodic Tab containing Mefenamic Acid 250 mg and Dicyclomine HCL 10 mg,Antispasmodic Tab containing Mefenamic Acid 250 mg and Dicyclomine HCL 10 mg,Antispasmodic Tab containing Mefenamic Acid 250 mg and Dicyclomine HCL 10 mg,Antispasmodic Tab containing Mefenamic Acid 250 mg and Dicyclomine HCL 10 mg,Antispasmodic Tab containing Mefenamic Acid 250 mg and Dicyclomine HCL 10 mg,Antispasmodic Tab containing Mefenamic Acid 250 mg and Dic"
+     ],
+     "b_is_custom_item": [
+      0
+     ],
+     "bbt_title": [
+      "MEDICINES"
+     ],
+     "is_high_value": [
+      false
+     ],
+     "b_ra_to_bid": [
+      1
+     ],
+     "b_is_inactive": [
+      0
+     ],
+     "b_cat_id": [
+      "home_boq_boql_boql_boq"
+     ],
+     "b.b_created_by": [
+      "redacted"
+     ],
+     "ba_is_single_packet": [
+      0
+     ],
+     "ba_is_global_tendering": [
+      0
+     ],
+     "is_rc_bid": [
+      0
+     ],
+     "ba_official_details_minName": [
+      "Ministry of Defence"
+     ],
+     "ba_official_details_deptName": [
+      "Department of Military Affairs"
+     ],
+     "bd_details_is_boq": [
+      true
+     ],
+     "bd_details_new_boq": [
+      true
+     ],
+     "bid_schedule": [],
+     "parent_bid_schedule": []
+    },
+    {
+     "id": "9973179",
+     "b_id": [
+      9973179
+     ],
+     "b_bid_number": [
+      "GEM/2026/B/8106737"
+     ],
+     "b_category_name": [
+      "INJ DICYCLOMINE 20 MG,INJ TT 0 POINT 5 ML,INJ TAB,INJ HYDROCORTISONE,IN LABTETOLOL,INJ MIDAZOLAM,IN"
+     ],
+     "b_total_quantity": [
+      3925
+     ],
+     "b_status": [
+      1
+     ],
+     "b_bid_type": [
+      1
+     ],
+     "b_is_bunch": [
+      84
+     ],
+     "b_type": [
+      0
+     ],
+     "b_bid_to_ra": [
+      0
+     ],
+     "b_buyer_status": [
+      0
+     ],
+     "b_eval_type": [
+      0
+     ],
+     "final_start_date_sort": [
+      "2026-10-01T12:30:29Z"
+     ],
+     "final_end_date_sort": [
+      "2026-10-12T13:00:00Z"
+     ],
+     "bd_category_name": [
+      "INJ DICYCLOMINE 20 MG,INJ TT 0 POINT 5 ML,INJ TAB,INJ HYDROCORTISONE,IN LABTETOLOL,INJ MIDAZOLAM,INJ TRANEXANIC ACID,INJ ANTI RABBIES SERUM,INJ RABIPUR,INJ MORPHINE,INJ LEVITERACETAM,INJ PROPOFOL,INJ NORADERENALINE,INJ AMIODRONE 150 MG,INHEALER TIOTROPIUM BROMIDE FORMOTERAL FUMARATE,INJ BUSCOPAN,INJ ADENOSINE,INJ PHEYNTOIN,INJ HEPARIN,TAB ITRACONAZOLE,TAB N COLD,TAB PANTOP D,CAP PRO BIOTIC,TAB MEFANAMIC ACID,TAB SHELCAL XT,SACHET CALCIUM,TAB ZINCO VIT,TAB MCB 1500 MCG,TAB PCM 650 MG,TAB SORBITATE,TAB NITROFURANTOIN 100 MG,TAB B COMPLEX,TAB MULTIVITAMIN,TAB FLUCONAZOLE,TAB WINSILS COFSILS,TAB GLIMPERIDE 1 MG,TAB AMLODIPINE 5 MG,TAB ACICLOVIR 400 MG,TAB ASPIRIN GASRO RESISTANT 150 MG,TAB CLCIUM AND VIT D3,CAP VITAMIN E 400 MG,TAB TRYPSIN CHYMOTRYPSIN,TAB DERYPHULLIN,OINT PROVIDNE 100 OBLIQUE NE,OINT CLOBETASOLE,OINT TERBINAFINE,TUBE MOUTH GEL,TUBE LULICONAZOLE,TUBE CHILL BLAINS,SYP AMBROXYL,SYP PCM,SYP IBUGESIC PLUS,SYP BETADINE GARGLE,TUBE BELCLOMETHASONE,SYP ALOKOF DX,SYP ALOKOF LS,ED OFLOX,KNEE CAP,LUMBER BE"
+     ],
+     "b_is_custom_item": [
+      0
+     ],
+     "bbt_title": [
+      "MEDICINE"
+     ],
+     "is_high_value": [
+      false
+     ],
+     "b_ra_to_bid": [
+      1
+     ],
+     "b_is_inactive": [
+      0
+     ],
+     "b_cat_id": [
+      "home_boq_boql_boql_boq"
+     ],
+     "b.b_created_by": [
+      "redacted"
+     ],
+     "ba_is_single_packet": [
+      0
+     ],
+     "ba_is_global_tendering": [
+      0
+     ],
+     "is_rc_bid": [
+      0
+     ],
+     "ba_official_details_minName": [
+      "Ministry of Defence"
+     ],
+     "ba_official_details_deptName": [
+      "Department of Military Affairs"
+     ],
+     "bd_details_is_boq": [
+      true
+     ],
+     "bd_details_new_boq": [
+      true
+     ],
+     "bid_schedule": [],
+     "parent_bid_schedule": []
+    },
+    {
+     "id": "9939327",
+     "b_id": [
+      9939327
+     ],
+     "b_bid_number": [
+      "GEM/2026/B/8077144"
+     ],
+     "b_category_name": [
+      "OSELTAMIVIR 75 MG CAP,Calamine 8 Percent with 10 Percent liquid paraffin 50ml bott,Cap Evening prim"
+     ],
+     "b_total_quantity": [
+      14760
+     ],
+     "b_status": [
+      1
+     ],
+     "b_bid_type": [
+      1
+     ],
+     "b_is_bunch": [
+      8
+     ],
+     "b_type": [
+      0
+     ],
+     "b_bid_to_ra": [
+      0
+     ],
+     "b_buyer_status": [
+      0
+     ],
+     "b_eval_type": [
+      1
+     ],
+     "final_start_date_sort": [
+      "2026-10-01T13:00:41Z"
+     ],
+     "final_end_date_sort": [
+      "2026-10-12T13:00:00Z"
+     ],
+     "bd_category_name": [
+      "OSELTAMIVIR 75 MG CAP,OSELTAMIVIR 75 MG CAP,OSELTAMIVIR 75 MG CAP,OSELTAMIVIR 75 MG CAP,OSELTAMIVIR 75 MG CAP,OSELTAMIVIR 75 MG CAP,OSELTAMIVIR 75 MG CAP,OSELTAMIVIR 75 MG CAP,Calamine 8 Percent with 10 Percent liquid paraffin 50ml bott,Calamine 8 Percent with 10 Percent liquid paraffin 50ml bott,Calamine 8 Percent with 10 Percent liquid paraffin 50ml bott,Calamine 8 Percent with 10 Percent liquid paraffin 50ml bott,Calamine 8 Percent with 10 Percent liquid paraffin 50ml bott,Calamine 8 Percent with 10 Percent liquid paraffin 50ml bott,Calamine 8 Percent with 10 Percent liquid paraffin 50ml bott,Calamine 8 Percent with 10 Percent liquid paraffin 50ml bott,Cap Evening primrose oil soft gelatine 500mg,Cap Evening primrose oil soft gelatine 500mg,Cap Evening primrose oil soft gelatine 500mg,Cap Evening primrose oil soft gelatine 500mg,Cap Evening primrose oil soft gelatine 500mg,Cap Evening primrose oil soft gelatine 500mg,Cap Evening primrose oil soft gelatine 500mg,Cap Evening primrose oil soft gelatine 500mg,"
+     ],
+     "b_is_custom_item": [
+      0
+     ],
+     "bbt_title": [
+      "Medicines"
+     ],
+     "is_high_value": [
+      false
+     ],
+     "b_ra_to_bid": [
+      1
+     ],
+     "b_is_inactive": [
+      0
+     ],
+     "b_cat_id": [
+      "home_boq_boql_boql_boq"
+     ],
+     "b.b_created_by": [
+      "redacted"
+     ],
+     "ba_is_single_packet": [
+      0
+     ],
+     "ba_is_global_tendering": [
+      0
+     ],
+     "is_rc_bid": [
+      0
+     ],
+     "ba_official_details_minName": [
+      "Ministry of Defence"
+     ],
+     "ba_official_details_deptName": [
+      "Department of Military Affairs"
+     ],
+     "bd_details_is_boq": [
+      true
+     ],
+     "bd_details_new_boq": [
+      true
+     ],
+     "bid_schedule": [],
+     "parent_bid_schedule": []
+    },
+    {
+     "id": "9950989",
+     "b_id": [
+      9950989
+     ],
+     "b_bid_number": [
+      "GEM/2026/B/8087329"
+     ],
+     "b_category_name": [
+      "habbe bukhar,habbe bawaseer khooni,kurs ziabetis,habbe papita,habbe baaseer badi,habbe tinkar,habbe"
+     ],
+     "b_total_quantity": [
+      1606
+     ],
+     "b_status": [
+      1
+     ],
+     "b_bid_type": [
+      1
+     ],
+     "b_is_bunch": [
+      21
+     ],
+     "b_type": [
+      0
+     ],
+     "b_bid_to_ra": [
+      0
+     ],
+     "b_buyer_status": [
+      0
+     ],
+     "b_eval_type": [
+      1
+     ],
+     "final_start_date_sort": [
+      "2026-09-26T14:43:20Z"
+     ],
+     "final_end_date_sort": [
+      "2026-10-12T14:00:00Z"
+     ],
+     "bd_category_name": [
+      "habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bukhar,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,habbe bawaseer khooni,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziabetis,kurs ziab"
+     ],
+     "b_is_custom_item": [
+      0
+     ],
+     "bbt_title": [
+      "Unani Classical Medicines"
+     ],
+     "is_high_value": [
+      false
+     ],
+     "b_ra_to_bid": [
+      1
+     ],
+     "b_is_inactive": [
+      0
+     ],
+     "b_cat_id": [
+      "home_boq_boql_boql_boq"
+     ],
+     "b.b_created_by": [
+      "redacted"
+     ],
+     "ba_is_single_packet": [
+      0
+     ],
+     "ba_is_global_tendering": [
+      0
+     ],
+     "is_rc_bid": [
+      0
+     ],
+     "ba_official_details_deptName": [
+      "Department of AYUSH"
+     ],
+     "bd_details_is_boq": [
+      true
+     ],
+     "bd_details_new_boq": [
+      true
+     ],
+     "bid_schedule": [],
+     "parent_bid_schedule": []
+    },
+    {
+     "id": "9939531",
+     "b_id": [
+      9939531
+     ],
+     "b_bid_number": [
+      "GEM/2026/B/8077332"
+     ],
+     "b_category_name": [
+      "Tab Methylcobalamin 1500mcg,Tab Norethisterone 5mg,Tab Clobazam 5mg,Clotrimazole mouth paint 1 Perc"
+     ],
+     "b_total_quantity": [
+      55230
+     ],
+     "b_status": [
+      1
+     ],
+     "b_bid_type": [
+      1
+     ],
+     "b_is_bunch": [
+      6
+     ],
+     "b_type": [
+      0
+     ],
+     "b_bid_to_ra": [
+      0
+     ],
+     "b_buyer_status": [
+      0
+     ],
+     "b_eval_type": [
+      1
+     ],
+     "final_start_date_sort": [
+      "2026-10-01T13:06:32Z"
+     ],
+     "final_end_date_sort": [
+      "2026-10-12T14:00:00Z"
+     ],
+     "bd_category_name": [
+      "Tab Methylcobalamin 1500mcg,Tab Methylcobalamin 1500mcg,Tab Methylcobalamin 1500mcg,Tab Methylcobalamin 1500mcg,Tab Methylcobalamin 1500mcg,Tab Methylcobalamin 1500mcg,Tab Norethisterone 5mg,Tab Norethisterone 5mg,Tab Norethisterone 5mg,Tab Norethisterone 5mg,Tab Norethisterone 5mg,Tab Norethisterone 5mg,Tab Clobazam 5mg,Tab Clobazam 5mg,Tab Clobazam 5mg,Tab Clobazam 5mg,Tab Clobazam 5mg,Tab Clobazam 5mg,Clotrimazole mouth paint 1 Percent bottle of 15 ml,Clotrimazole mouth paint 1 Percent bottle of 15 ml,Clotrimazole mouth paint 1 Percent bottle of 15 ml,Clotrimazole mouth paint 1 Percent bottle of 15 ml,Clotrimazole mouth paint 1 Percent bottle of 15 ml,Clotrimazole mouth paint 1 Percent bottle of 15 ml,Levodopa 100mg plus Carbidopa 25mg Tab,Levodopa 100mg plus Carbidopa 25mg Tab,Levodopa 100mg plus Carbidopa 25mg Tab,Levodopa 100mg plus Carbidopa 25mg Tab,Levodopa 100mg plus Carbidopa 25mg Tab,Levodopa 100mg plus Carbidopa 25mg Tab,Vitamin D3 200 IU per ml drops,Vitamin D3 200 IU per ml drops,Vitamin D3 200"
+     ],
+     "b_is_custom_item": [
+      0
+     ],
+     "bbt_title": [
+      "Medicines"
+     ],
+     "is_high_value": [
+      false
+     ],
+     "b_ra_to_bid": [
+      1
+     ],
+     "b_is_inactive": [
+      0
+     ],
+     "b_cat_id": [
+      "home_boq_boql_boql_boq"
+     ],
+     "b.b_created_by": [
+      "redacted"
+     ],
+     "ba_is_single_packet": [
+      0
+     ],
+     "ba_is_global_tendering": [
+      0
+     ],
+     "is_rc_bid": [
+      0
+     ],
+     "ba_official_details_minName": [
+      "Ministry of Defence"
+     ],
+     "ba_official_details_deptName": [
+      "Department of Military Affairs"
+     ],
+     "bd_details_is_boq": [
+      true
+     ],
+     "bd_details_new_boq": [
+      true
+     ],
+     "bid_schedule": [],
+     "parent_bid_schedule": []
+    },
+    {
+     "id": "9939874",
+     "b_id": [
+      9939874
+     ],
+     "b_bid_number": [
+      "GEM/2026/B/8077631"
+     ],
+     "b_category_name": [
+      "RISPERIDONE 1 MG PER ML SYP BOTT OF 30 ML,BROMHEXINE SYP 5 ML CONTAINING 4 MG OF BROMHEXINE HCL BOT"
+     ],
+     "b_total_quantity": [
+      69006
+     ],
+     "b_status": [
+      1
+     ],
+     "b_bid_type": [
+      1
+     ],
+     "b_is_bunch": [
+      5
+     ],
+     "b_type": [
+      0
+     ],
+     "b_bid_to_ra": [
+      0
+     ],
+     "b_buyer_status": [
+      0
+     ],
+     "b_eval_type": [
+      1
+     ],
+     "final_start_date_sort": [
+      "2026-10-01T13:49:25Z"
+     ],
+     "final_end_date_sort": [
+      "2026-10-12T14:00:00Z"
+     ],
+     "bd_category_name": [
+      "RISPERIDONE 1 MG PER ML SYP BOTT OF 30 ML,RISPERIDONE 1 MG PER ML SYP BOTT OF 30 ML,RISPERIDONE 1 MG PER ML SYP BOTT OF 30 ML,RISPERIDONE 1 MG PER ML SYP BOTT OF 30 ML,RISPERIDONE 1 MG PER ML SYP BOTT OF 30 ML,BROMHEXINE SYP 5 ML CONTAINING 4 MG OF BROMHEXINE HCL BOTT OF 100 ML,BROMHEXINE SYP 5 ML CONTAINING 4 MG OF BROMHEXINE HCL BOTT OF 100 ML,BROMHEXINE SYP 5 ML CONTAINING 4 MG OF BROMHEXINE HCL BOTT OF 100 ML,BROMHEXINE SYP 5 ML CONTAINING 4 MG OF BROMHEXINE HCL BOTT OF 100 ML,BROMHEXINE SYP 5 ML CONTAINING 4 MG OF BROMHEXINE HCL BOTT OF 100 ML,CETRIZINE SYRUP 5MG PER 5 ML BOTT OF 60 ML,CETRIZINE SYRUP 5MG PER 5 ML BOTT OF 60 ML,CETRIZINE SYRUP 5MG PER 5 ML BOTT OF 60 ML,CETRIZINE SYRUP 5MG PER 5 ML BOTT OF 60 ML,CETRIZINE SYRUP 5MG PER 5 ML BOTT OF 60 ML,Aspirin 75 mg Tab,Aspirin 75 mg Tab,Aspirin 75 mg Tab,Aspirin 75 mg Tab,Aspirin 75 mg Tab,Clopidogrel 75 mg Tab,Clopidogrel 75 mg Tab,Clopidogrel 75 mg Tab,Clopidogrel 75 mg Tab,Clopidogrel 75 mg Tab"
+     ],
+     "b_is_custom_item": [
+      0
+     ],
+     "bbt_title": [
+      "MEDICINES"
+     ],
+     "is_high_value": [
+      false
+     ],
+     "b_ra_to_bid": [
+      1
+     ],
+     "b_is_inactive": [
+      0
+     ],
+     "b_cat_id": [
+      "home_boq_boql_boql_boq"
+     ],
+     "b.b_created_by": [
+      "redacted"
+     ],
+     "ba_is_single_packet": [
+      0
+     ],
+     "ba_is_global_tendering": [
+      0
+     ],
+     "is_rc_bid": [
+      0
+     ],
+     "ba_official_details_minName": [
+      "Ministry of Defence"
+     ],
+     "ba_official_details_deptName": [
+      "Department of Military Affairs"
+     ],
+     "bd_details_is_boq": [
+      true
+     ],
+     "bd_details_new_boq": [
+      true
+     ],
+     "bid_schedule": [],
+     "parent_bid_schedule": []
+    },
+    {
+     "id": "9974171",
+     "b_id": [
+      9974171
+     ],
+     "b_bid_number": [
+      "GEM/2026/B/8107607"
+     ],
+     "b_category_name": [
+      "MEDICINES AND REFRESHMENT ITEMS"
+     ],
+     "b_total_quantity": [
+      1
+     ],
+     "b_status": [
+      1
+     ],
+     "b_bid_type": [
+      1
+     ],
+     "b_is_bunch": [
+      1
+     ],
+     "b_type": [
+      0
+     ],
+     "b_bid_to_ra": [
+      0
+     ],
+     "b_buyer_status": [
+      0
+     ],
+     "b_eval_type": [
+      0
+     ],
+     "final_start_date_sort": [
+      "2026-10-01T15:12:39Z"
+     ],
+     "final_end_date_sort": [
+      "2026-10-12T14:00:00Z"
+     ],
+     "bd_category_name": [
+      "MEDICINES AND REFRESHMENT ITEMS"
+     ],
+     "b_is_custom_item": [
+      1
+     ],
+     "is_high_value": [
+      false
+     ],
+     "b_ra_to_bid": [
+      1
+     ],
+     "b_is_inactive": [
+      0
+     ],
+     "b_cat_id": [
+      "home_univ_univ_univ_univ"
+     ],
+     "b.b_created_by": [
+      "redacted"
+     ],
+     "ba_is_single_packet": [
+      1
+     ],
+     "ba_is_global_tendering": [
+      0
+     ],
+     "is_rc_bid": [
+      0
+     ],
+     "ba_official_details_minName": [
+      "Ministry of Defence"
+     ],
+     "ba_official_details_deptName": [
+      "Department of Military Affairs"
+     ],
+     "bid_schedule": [],
+     "parent_bid_schedule": []
+    },
+    {
+     "id": "9866607",
+     "b_id": [
+      9866607
+     ],
+     "b_bid_number": [
+      "GEM/2026/B/8013654"
+     ],
+     "b_category_name": [
+      "Holister Conform 2 drainable bag 70 mm,Holister Conform 2 converse warfer plate 70 mm,Barrier ring "
+     ],
+     "b_total_quantity": [
+      99
+     ],
+     "b_status": [
+      1
+     ],
+     "b_bid_type": [
+      1
+     ],
+     "b_is_bunch": [
+      6
+     ],
+     "b_type": [
+      0
+     ],
+     "b_bid_to_ra": [
+      0
+     ],
+     "b_buyer_status": [
+      0
+     ],
+     "b_eval_type": [
+      0
+     ],
+     "final_start_date_sort": [
+      "2026-10-01T13:15:42Z"
+     ],
+     "final_end_date_sort": [
+      "2026-10-12T14:00:00Z"
+     ],
+     "bd_category_name": [
+      "Holister Conform 2 drainable bag 70 mm,Holister Conform 2 converse warfer plate 70 mm,Barrier ring 98 mm Holister 7806,Skin barrier Spray,Colostomy Brava Tape 12070,Fixomull Strech 10cmx2m"
+     ],
+     "b_is_custom_item": [
+      0
+     ],
+     "bbt_title": [
+      "RE 41 PROCUREMENT OF  MEDICINES"
+     ],
+     "is_high_value": [
+      false
+     ],
+     "b_ra_to_bid": [
+      1
+     ],
+     "b_is_inactive": [
+      0
+     ],
+     "b_cat_id": [
+      "home_boq_boql_boql_boq"
+     ],
+     "b.b_created_by": [
+      "redacted"
+     ],
+     "ba_is_single_packet": [
+      0
+     ],
+     "ba_is_global_tendering": [
+      0
+     ],
+     "is_rc_bid": [
+      0
+     ],
+     "ba_official_details_minName": [
+      "Ministry of Defence"
+     ],
+     "ba_official_details_deptName": [
+      "Department of Military Affairs"
+     ],
+     "bd_details_is_boq": [
+      true
+     ],
+     "bd_details_new_boq": [
+      true
+     ],
+     "bid_schedule": [],
+     "parent_bid_schedule": []
+    }
+   ]
+  }
+ }
+}
