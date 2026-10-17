@@ -173,7 +173,7 @@ def test_the_chat_is_the_only_screen_and_a_profile_change_waits_for_his_click(ch
     assert container.profiles.get().categories == ["fire extinguisher"]
     # He asked for bids of a product, so confirming it starts that search: no second request needed.
     page.wait_for_selector("text=Found 2 bids", timeout=15000)
-    assert source.calls == [(["fire extinguisher"], 2)]
+    assert source.calls == [(["extinguisher"], 2)]  # the telling word of "fire extinguisher"
     page.reload()
     page.wait_for_selector("text=I sell fire extinguishers")  # the conversation is still there
 

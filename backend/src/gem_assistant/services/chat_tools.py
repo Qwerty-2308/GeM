@@ -46,7 +46,7 @@ DEFINITIONS = [
     _tool("propose_profile_update",
           "Propose changes to the seller's profile. Nothing is saved: he sees the change and confirms it "
           "himself. Pass only the fields that change.",
-          {"add_products": {**_LIST, "description": "Products to add, as GeM names them, e.g. 'office chair'"},
+          {"add_products": {**_LIST, "description": "Products to add, as GeM names them, e.g. 'revolving chair'"},
            "remove_products": {**_LIST, "description": "Saved products he no longer sells"},
            "ignore_words": {**_LIST, "description": "Items naming these never count, e.g. 'repair', 'AMC'"},
            "annual_turnover_rupees": {"type": "integer", "description": "Average annual turnover in rupees"},

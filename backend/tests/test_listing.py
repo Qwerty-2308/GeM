@@ -243,7 +243,7 @@ def test_full_discovery_run_with_real_browser(settings, clock, transport, tmp_pa
                       final_end_date_sort="2025-11-14T12:00:00Z")
     gem = FakeGeM(
         ALL_BIDS_SHELL.read_bytes(),
-        {"Clip assy": [sample, make_doc(1, bid_type=5)]},
+        {"assy": [sample, make_doc(1, bid_type=5)]},  # GeM is asked the telling word of "Clip assy"
         # The bid we analyse has been amended; the reverse auction is never fetched.
         corrigendum_bodies={"8506455": b"<div><b>Bid End Date</b> extended to 20-11-2025</div>"},
     )
