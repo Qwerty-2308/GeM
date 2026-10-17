@@ -71,3 +71,15 @@ def test_no_env_file_is_fine(monkeypatch, tmp_path):
 
     monkeypatch.setenv("GEM_DATA_DIR", str(tmp_path))
     assert Settings.from_env().data_dir == tmp_path
+
+
+def test_the_daily_search_time_is_set_in_india_time_or_turned_off(monkeypatch, tmp_path):
+    from datetime import time
+
+    monkeypatch.setenv("GEM_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("GEM_DAILY_SEARCH_AT", raising=False)
+    assert Settings.from_env().discovery.daily_search_at == time(9, 0)
+    monkeypatch.setenv("GEM_DAILY_SEARCH_AT", "18:30")
+    assert Settings.from_env().discovery.daily_search_at == time(18, 30)
+    monkeypatch.setenv("GEM_DAILY_SEARCH_AT", "")
+    assert Settings.from_env().discovery.daily_search_at is None

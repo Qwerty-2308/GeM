@@ -208,12 +208,19 @@ export async function renderChat(container, _params, api) {
     log.lastElementChild?.scrollIntoView({ block: "end" });
   };
 
-  const [chat, safety] = await Promise.all([api.chatStatus(), api.getSafety()]);
+  const [chat, safety, found] = await Promise.all([api.chatStatus(), api.getSafety(), api.getDiscovery().catch(() => null)]);
   const setup = el("div");
   if (!chat.ready) {
     setup.append(notice("warn", "The chat has no Groq API key yet. On a server, set GROQ_API_KEY; on a Mac, run: gem-assistant set-groq-key"));
   }
   if (!safety.contact_email) setup.append(contactCard(api, null));
+  // The daily search runs without him: say what it found when he opens the chat that day.
+  const daily = found && found.last_run && found.last_run.trigger === "schedule" ? found.last_run : null;
+  const indianDay = (when) => new Date(when).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+  if (daily && indianDay(daily.started_at) === indianDay(Date.now())) {
+    setup.append(notice(daily.outcome === "ok" ? "ok" : "warn",
+      `Today's automatic search (${formatDateTime(daily.started_at)}): ${daily.message || "no result"} Ask me about the bids it found.`));
+  }
 
   container.append(setup, log, form);
   state.shown.forEach(show);

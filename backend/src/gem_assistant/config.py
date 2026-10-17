@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 from dataclasses import dataclass, field
+from datetime import time as dt_time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -92,6 +93,7 @@ class DiscoverySettings:
     max_corrigendum_checks_per_run: int = 5
     browser_timeout_seconds: float = 60.0
     browser_executable_path: str | None = None  # default: Playwright's own Chromium
+    daily_search_at: dt_time | None = dt_time(9, 0)  # India time; None: no search by itself
 
 
 @dataclass(frozen=True)
@@ -144,6 +146,9 @@ class Settings:
             max_corrigendum_checks_per_run=min(defaults.max_corrigendum_checks_per_run,
                                               _env_int("GEM_MAX_CORRIGENDUM_CHECKS_PER_RUN", 5)),
             browser_executable_path=os.environ.get("GEM_CHROMIUM_PATH") or None,
+            # "HH:MM" in India time; set but empty turns the daily search off.
+            daily_search_at=(dt_time.fromisoformat(at) if (at := os.environ.get("GEM_DAILY_SEARCH_AT", "09:00").strip())
+                             else None),
         )
         return cls(
             data_dir=data_dir,

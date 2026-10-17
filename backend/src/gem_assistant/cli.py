@@ -84,6 +84,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if not args.no_open:
             _open_browser_later(f"http://127.0.0.1:{args.port}/")
+        if container.daily_search.start():
+            print(f"GeM is searched for his products every day at {container.daily_search.at:%H:%M} India time "
+                  "(GEM_DAILY_SEARCH_AT).", flush=True)
         # By default 127.0.0.1 only: never reachable from other machines. As a website, every
         # API call needs a login.
         uvicorn.run(create_app(container, login=login), host=args.host, port=args.port)

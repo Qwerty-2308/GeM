@@ -382,3 +382,44 @@ def test_a_search_cut_off_by_a_restart_is_closed_on_the_next_start(settings, clo
         rows = dict(conn.execute("SELECT id, outcome FROM discovery_run").fetchall())
     assert rows[recent] is None  # possibly still running elsewhere
     assert [o for i, o in rows.items() if i != recent] == ["failed"]
+
+
+# ---------- the daily search ----------
+
+def _utc(day, hour, minute=0):
+    return datetime(2025, 11, day, hour, minute, tzinfo=timezone.utc)
+
+
+def test_the_daily_search_runs_once_a_day_at_its_time(app, source, clock, transport):
+    """09:00 in India is 03:30 UTC. Every guard of a search he starts applies: it is the same run."""
+    _queue_pdf(transport)
+    clock.current = _utc(1, 2)  # 07:30 in India
+    assert app.daily_search.next_run() == _utc(1, 3, 30)
+    assert app.daily_search.run_if_due() == "not due" and source.calls == []
+    clock.current = _utc(1, 3, 30)
+    assert app.daily_search.run_if_due().startswith("[ok]") and source.calls == [(["Pump"], 2)]
+    assert app.discovery.status().last_run.trigger == "schedule"
+    assert app.daily_search.next_run() == _utc(2, 3, 30)
+    assert app.daily_search.run_if_due() == "not due" and len(source.calls) == 1
+
+
+def test_a_server_started_late_catches_up_once(app, settings, source, clock, transport):
+    _queue_pdf(transport)  # the clock reads 11:30 in India: today's search hasn't run
+    assert app.daily_search.run_if_due().startswith("[ok]")
+    restarted = Container.build(settings, clock=clock, transport=transport, listing_source_factory=source.bind)
+    assert restarted.daily_search.next_run() == _utc(2, 3, 30) and len(source.calls) == 1
+
+
+def test_a_refused_daily_search_waits_for_tomorrow(settings, source, clock, transport):
+    """No products yet: refused without contacting GeM, and not retried in a loop."""
+    fresh = Container.build(settings, clock=clock, transport=transport, listing_source_factory=source.bind)
+    assert fresh.daily_search.run_if_due().startswith("skipped") and source.calls == []
+    assert fresh.daily_search.next_run() == _utc(2, 3, 30)
+
+
+def test_the_daily_search_can_be_turned_off(settings, source, clock, transport):
+    from dataclasses import replace
+
+    off = replace(settings, discovery=replace(settings.discovery, daily_search_at=None))
+    c = Container.build(off, clock=clock, transport=transport, listing_source_factory=source.bind)
+    assert c.daily_search.next_run() is None and c.daily_search.start() is None

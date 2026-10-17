@@ -94,6 +94,11 @@ class ChatTools:
         except TypeError as error:  # arguments the tool doesn't take
             return ToolResult({"error": f"Wrong arguments for {name}: {error}"})
 
+    def daily_search_note(self) -> str:
+        """For the model's instructions, so it can tell him what happens without him."""
+        at = self._c.daily_search.at
+        return f"GeM is also searched for his saved products by itself every day at {at:%H:%M} India time." if at else ""
+
     # ---- profile ----
     def profile(self) -> dict[str, Any]:
         """His saved profile, for the model's instructions (not a tool: that would cost a round)."""
@@ -153,7 +158,8 @@ class ChatTools:
                 for e in status.listings if e.matched_items][:20]
         return ToolResult({"running": status.running, "searches_for": status.keywords,
                            "last_search": {"outcome": last.outcome, "message": last.message,
-                                           "started_at": last.started_at.isoformat()} if last else None,
+                                           "started_at": last.started_at.isoformat(),
+                                           "ran_by_itself": last.trigger == "schedule"} if last else None,
                            "his_products_found": mine},
                           {"type": "listings", "listings": mine} if mine else None)
 

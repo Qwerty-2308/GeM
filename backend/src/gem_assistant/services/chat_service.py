@@ -105,6 +105,7 @@ class ChatService:
         profile = json.dumps(self._tools.profile(), ensure_ascii=False)
         cleaned = _clean(history)
         conversation = [{"role": "system", "content": f"{SYSTEM_PROMPT}\n\n{_script_of_last(cleaned)}\n\n"
+                                                      f"{self._tools.daily_search_note()}\n\n"
                                                       f"His saved profile now: {profile}"}, *cleaned]
         reply = ChatReply()
         if added_bid_id is not None:

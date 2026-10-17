@@ -408,10 +408,14 @@ class SqliteDiscoveryRunStore:
                                 (_iso(since),)).fetchall()
         return [k for r in rows for k in json.loads(r["keywords_json"])]
 
-    def last(self, contacted_gem: bool = False) -> DiscoveryRun | None:
-        where = "WHERE requests > 0 OR finished_at IS NULL" if contacted_gem else ""
+    def last(self, contacted_gem: bool = False, trigger: str | None = None) -> DiscoveryRun | None:
+        clauses = ["(requests > 0 OR finished_at IS NULL)"] if contacted_gem else []
+        if trigger is not None:
+            clauses.append("trigger = ?")
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         with self._db.connect() as conn:
-            r = conn.execute(f"SELECT * FROM discovery_run {where} ORDER BY id DESC LIMIT 1").fetchone()
+            r = conn.execute(f"SELECT * FROM discovery_run {where} ORDER BY id DESC LIMIT 1",
+                             () if trigger is None else (trigger,)).fetchone()
         if r is None:
             return None
         return DiscoveryRun(

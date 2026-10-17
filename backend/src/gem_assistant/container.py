@@ -44,6 +44,7 @@ from .services.bid_import_service import BidImportService
 from .services.bid_query_service import BidQueryService
 from .services.chat_service import ChatModel
 from .services.corpus_service import CorpusService
+from .services.daily_search import DailySearch
 from .services.discovery_service import DiscoveryService
 from .services.profile_service import ProfileService
 from .services.safety_service import SafetyService
@@ -59,6 +60,7 @@ class Container:
     fetcher: SafeFetcher
     bid_fetch: BidFetchService
     discovery: DiscoveryService
+    daily_search: DailySearch
     corpus: CorpusService
     chat_model: ChatModel
 
@@ -170,6 +172,7 @@ class Container:
             fetcher=fetcher,
             bid_fetch=bid_fetch,
             discovery=discovery,
+            daily_search=DailySearch(discovery, runs, clock, settings.discovery.daily_search_at),
             corpus=corpus,
             chat_model=chat_model or GroqChatModel(lambda: _groq_key(settings), settings.groq_model),
         )

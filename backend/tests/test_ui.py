@@ -195,6 +195,26 @@ def test_a_bid_he_downloaded_himself_is_checked_in_the_chat(chat_app, page):
     assert source.calls == []  # GeM is never contacted
 
 
+def test_todays_automatic_search_greets_him_in_the_chat(chat_app, page, clock):
+    from datetime import datetime, timezone
+
+    from gem_assistant.domain.models import SellerProfile
+
+    base, container, source = chat_app
+    container.profiles.save(SellerProfile(categories=["fire extinguisher"]))
+    clock.current = datetime.now(timezone.utc)  # the page compares with today's real date
+    assert container.daily_search.run_if_due().startswith("[ok]")
+    page.goto(base + "/")
+    page.wait_for_selector(".notice:has-text(\"Today's automatic search\")")
+    assert "Found 2 bids" in page.locator(".notice", has_text="automatic search").inner_text()
+    sent = container.chat_model
+    sent.replies[:] = [{"role": "assistant", "content": "ok"}]
+    page.fill("#chat-input", "do you search by yourself?")
+    page.click("text=Send")
+    page.wait_for_selector(".msg.bot:has-text('ok')")
+    assert "every day at 09:00 India time" in sent.sent[-1][0]["content"]  # the model is told
+
+
 def test_a_chat_error_is_shown_in_plain_words(chat_app, page):
     from gem_assistant.infrastructure.groq_chat import ChatModelError
 
