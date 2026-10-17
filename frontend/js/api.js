@@ -58,7 +58,12 @@ export class ApiClient {
 
   // ---- chat ----
   chatStatus() { return this.#request("/chat"); }
-  chat(messages) { return this.#json("POST", "/chat", { messages }); }
+  // The answer streams (newlines while it works, then the JSON), so its errors come in the body.
+  async chat(messages, addedBidId = null) {
+    const body = await this.#json("POST", "/chat", { messages, added_bid_id: addedBidId });
+    if (body.error) throw new ApiError(503, body.error);
+    return body;
+  }
 
   // ---- safety ----
   getSafety() { return this.#request("/safety"); }

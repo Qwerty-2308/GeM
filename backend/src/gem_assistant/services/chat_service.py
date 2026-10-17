@@ -17,12 +17,13 @@ MAX_HISTORY = 40
 
 SYSTEM_PROMPT = """You are GeM Assistant. You help an Indian seller find and check bids on GeM \
 (Government e-Marketplace). Reply in the language of his last message: English to English, Hindi to Hindi, \
-Hinglish (Hindi in Latin letters) to Hinglish in Latin letters, never Devanagari. Reply briefly and plainly, in plain text without Markdown.
+Hinglish (Hindi in Latin letters) to Hinglish in Latin letters, never Devanagari. Reply briefly and plainly, \
+without tables or headings.
 
 Facts come only from tool results. Never state a figure, date, amount or requirement that is not in a tool \
 result, and when the result gives a page for it, say which page. Never name a page the result doesn't give. \
 If something wasn't found, say so. The \
-page shows tool results to him as cards, so don't repeat long lists; point out what matters.
+page shows tool results to him as cards, so never repeat their lists; point out what matters.
 
 A verdict of NEEDS_REVIEW means he must check the listed reasons himself: never call such a bid eligible. \
 BLOCKED means a clear shortfall was found; say which, with its page.
@@ -70,13 +71,20 @@ class ChatService:
         self._model = model
         self._tools = tools
 
-    def reply(self, history: list[dict]) -> ChatReply:
+    def reply(self, history: list[dict], added_bid_id: int | None = None) -> ChatReply:
         # Read fresh each question: it saves the model a round (and Groq tokens) asking, and it
         # tells it what he confirmed on a card since the last question.
         profile = json.dumps(self._tools.profile(), ensure_ascii=False)
         conversation = [{"role": "system", "content": f"{SYSTEM_PROMPT}\n\nHis saved profile now: {profile}"},
                         *_clean(history)]
         reply = ChatReply()
+        if added_bid_id is not None:
+            # A bid PDF he just added himself: opened here rather than left to the model, which once
+            # answered that only GeM links can be checked.
+            call = {"id": f"added_{added_bid_id}", "type": "function",
+                    "function": {"name": "get_bid", "arguments": json.dumps({"bid_id": added_bid_id})}}
+            reply.messages.append({"role": "assistant", "tool_calls": [call]})
+            self._answer(call, reply)
         for _ in range(MAX_ROUNDS):
             answer = self._model.complete(conversation + reply.messages, self._tools.definitions)
             reply.messages.append(answer)
@@ -84,14 +92,17 @@ class ChatService:
             if not calls:
                 return reply
             for call in calls:
-                result = self._run(call)
-                reply.messages.append({"role": "tool", "tool_call_id": call["id"],
-                                       "content": json.dumps(result.data, ensure_ascii=False)})
-                if result.card:
-                    reply.cards.append(result.card)
+                self._answer(call, reply)
         reply.messages.append({"role": "assistant", "content":
                                "That took more steps than I'm allowed for one question. Please ask it in smaller parts."})
         return reply
+
+    def _answer(self, call: dict[str, Any], reply: ChatReply) -> None:
+        result = self._run(call)
+        reply.messages.append({"role": "tool", "tool_call_id": call["id"],
+                               "content": json.dumps(result.data, ensure_ascii=False)})
+        if result.card:
+            reply.cards.append(result.card)
 
     def _run(self, call: dict[str, Any]) -> ToolResult:
         function = call.get("function") or {}

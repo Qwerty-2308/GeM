@@ -339,12 +339,60 @@ def test_chat_endpoint_answers_with_new_messages_and_cards(settings, clock, tran
     assert [c["type"] for c in body["cards"]] == ["bid_list"]
 
 
+def test_a_bid_pdf_he_added_reaches_the_model_already_opened(settings, clock, transport):
+    """Invite-only bids: he uploads the PDF himself. The model is not trusted to open it (it once
+    answered that only GeM links can be checked): the bid is opened for it before it answers."""
+    from .conftest import SAMPLE_PDF
+
+    model = ScriptedModel(_says("Checked the bid you added."))
+    client = _client(settings, clock, transport, model)
+    bid_id = client.post("/api/bids/import", files={
+        "file": ("bid.pdf", SAMPLE_PDF.read_bytes(), "application/pdf")}).json()["id"]
+    body = client.post("/api/chat", json={"messages": [{"role": "user", "content": "Check the bid PDF I added."}],
+                                          "added_bid_id": bid_id}).json()
+    assert [m["role"] for m in body["messages"]] == ["assistant", "tool", "assistant"]
+    assert body["messages"][0]["tool_calls"][0]["function"]["name"] == "get_bid"
+    assert [c["type"] for c in body["cards"]] == ["bid"]
+    opened = model.sent[0][-1]  # what the model reads before its first word
+    assert opened["role"] == "tool" and "GEM/2025/B/6819518" in opened["content"]
+
+
 def test_without_a_groq_key_the_chat_says_how_to_set_it_up(settings, clock, transport, monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     client = _client(settings, clock, transport)
     assert client.get("/api/chat").json()["ready"] is False
     response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "hi"}]})
-    assert response.status_code == 503 and "set-groq-key" in response.json()["detail"]
+    assert "set-groq-key" in response.json()["error"]
+
+
+def test_a_slow_answer_keeps_the_connection_alive(settings, clock, transport, monkeypatch):
+    """An answer can take a minute (model rounds, Groq's rate limit, a GeM download) and proxies drop
+    a connection that is silent for a while (Fly: 60 s): newlines go out while it works, then the JSON."""
+    import time
+
+    from gem_assistant.api.routes import chat as chat_route
+
+    monkeypatch.setattr(chat_route, "KEEPALIVE_SECONDS", 0.05)
+
+    class SlowModel(ScriptedModel):
+        def complete(self, messages, tools):
+            time.sleep(0.3)
+            return super().complete(messages, tools)
+
+    client = _client(settings, clock, transport, SlowModel(_says("Here you are.")))
+    response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert response.text.startswith("\n\n")
+    assert response.json()["messages"][-1]["content"] == "Here you are."
+
+
+def test_a_server_fault_during_an_answer_reads_as_a_plain_sentence(settings, clock, transport):
+    class BrokenModel(ScriptedModel):
+        def complete(self, messages, tools):
+            raise RuntimeError("bug")
+
+    client = _client(settings, clock, transport, BrokenModel())
+    body = client.post("/api/chat", json={"messages": [{"role": "user", "content": "hi"}]}).json()
+    assert body == {"error": "Something went wrong on the server. Ask again."}
 
 
 def test_set_groq_key_keeps_it_owner_only_and_the_page_never_sees_it(monkeypatch, tmp_path, settings, clock,

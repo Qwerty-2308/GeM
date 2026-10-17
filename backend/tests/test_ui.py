@@ -181,18 +181,50 @@ def test_the_chat_is_the_only_screen_and_a_profile_change_waits_for_his_click(ch
 def test_a_bid_he_downloaded_himself_is_checked_in_the_chat(chat_app, page):
     """Invite-only bids need his own GeM login: he downloads the PDF as usual and drops it in here."""
     from .conftest import SAMPLE_PDF
-    from .test_chat import _calls, _says
+    from .test_chat import _says
 
     base, container, source = chat_app
-    container.chat_model.replies[:] = [_calls(("get_bid", {"bid_id": 1})), _says("Checked the bid you added.")]
+    container.chat_model.replies[:] = [_says("Checked the bid you added.")]  # it never has to open it
     page.goto(base + "/")
     page.set_input_files("#bid-file", str(SAMPLE_PDF))
     page.wait_for_selector("text=Checked the bid you added.")
     assert [b.bid.bid_number for b in container.bid_query.list()] == ["GEM/2025/B/6819518"]
     assert page.locator(".card", has_text="GEM/2025/B/6819518").count() == 1  # the bid's card, with its reasons
-    asked = container.chat_model.sent[0][-1]["content"]
-    assert "bid 1" in asked  # the model is told which bid to open
+    opened = container.chat_model.sent[0][-1]
+    assert opened["role"] == "tool" and "GEM/2025/B/6819518" in opened["content"]  # read before it answers
     assert source.calls == []  # GeM is never contacted
+
+
+def test_a_chat_error_is_shown_in_plain_words(chat_app, page):
+    from gem_assistant.infrastructure.groq_chat import ChatModelError
+
+    base, container, _ = chat_app
+
+    def busy(messages, tools):
+        raise ChatModelError("Groq is busy right now (rate limit). Wait a minute and ask again.")
+
+    container.chat_model.complete = busy
+    page.goto(base + "/")
+    page.fill("#chat-input", "hi")
+    page.click("text=Send")
+    page.wait_for_selector(".notice.bad:has-text('Groq is busy right now')")
+
+
+def test_the_models_markdown_shows_as_formatting_never_as_html(chat_app, page):
+    from .test_chat import _says
+
+    base, container, _ = chat_app
+    container.chat_model.replies[:] = [_says(
+        "## Your bids\n**Two** to check:\n\n| Bid | Verdict |\n|---|:---:|\n| GEM/1 | NEEDS_REVIEW |\n"
+        "| <img src=x onerror=alert(1)> | BLOCKED |\n\n- read page 7")]
+    page.goto(base + "/")
+    page.fill("#chat-input", "my bids?")
+    page.click("text=Send")
+    bubble = page.locator(".msg.bot", has_text="Two")
+    bubble.wait_for()
+    assert bubble.locator("table tbody tr").count() == 2 and bubble.locator("strong").inner_text() == "Two"
+    assert "|" not in bubble.inner_text() and "##" not in bubble.inner_text() and "• read page 7" in bubble.inner_text()
+    assert bubble.locator("img").count() == 0 and "<img" in bubble.locator("td").nth(2).inner_text()
 
 
 def test_after_a_safety_stop_resuming_is_one_click_from_the_chat(chat_app, page, transport):
