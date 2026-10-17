@@ -57,11 +57,23 @@ def test_a_short_busy_spell_is_waited_out_once():
     assert slept == [2.0]
 
 
-def test_a_long_busy_spell_is_not_waited_out():
+def test_a_minute_of_rate_limit_is_waited_out():
+    """A free key allows 8,000 tokens a minute, and one question can need more. The answer streams,
+    so the page keeps waiting: a slower answer beats an error."""
+    answers = [httpx.Response(429, headers={"retry-after": "55"}), httpx.Response(200, json={"choices": [{"message": {
+        "role": "assistant", "content": "ok"}}]})]
+    slept = []
+    model = GroqChatModel(lambda: "k", "m", transport=httpx.MockTransport(lambda request: answers.pop(0)),
+                          sleep=slept.append)
+    assert model.complete([], []) == {"role": "assistant", "content": "ok"}
+    assert slept == [55.0]
+
+
+def test_a_used_up_daily_limit_says_when_to_ask_again():
     slept = []
     model = GroqChatModel(lambda: "k", "m", sleep=slept.append, transport=httpx.MockTransport(
-        lambda request: httpx.Response(429, headers={"retry-after": "120"})))
-    with pytest.raises(ChatModelError, match="busy"):
+        lambda request: httpx.Response(429, headers={"retry-after": "7300"})))
+    with pytest.raises(ChatModelError, match="Ask again in about 2 hours"):
         model.complete([], [])
     assert slept == []
 
