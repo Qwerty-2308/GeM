@@ -46,7 +46,7 @@ DEFINITIONS = [
     _tool("propose_profile_update",
           "Propose changes to the seller's profile. Nothing is saved: he sees the change and confirms it "
           "himself. Pass only the fields that change.",
-          {"add_products": {**_LIST, "description": "Products to add, as GeM names them, e.g. 'office chair'"},
+          {"add_products": {**_LIST, "description": "Products to add, as GeM names them, e.g. 'revolving chair'"},
            "remove_products": {**_LIST, "description": "Saved products he no longer sells"},
            "ignore_words": {**_LIST, "description": "Items naming these never count, e.g. 'repair', 'AMC'"},
            "annual_turnover_rupees": {"type": "integer", "description": "Average annual turnover in rupees"},
@@ -55,8 +55,10 @@ DEFINITIONS = [
            "business_name": {"type": "string"},
            "bid_order": {"type": "string", "enum": ["match", "closing"],
                          "description": "Download first: bids made mostly of his products, or closing soonest"}}),
-    _tool("search_gem", "Start one search of GeM's public bid list for the products saved in his profile, and "
-                        "only those. If he names a product that isn't saved, call propose_profile_update with "
+    _tool("search_gem", "Only when he asks for new bids from GeM: start one search of GeM's public bid list for "
+                        "the products saved in his profile, and only those. Questions about bids already found "
+                        "(which closes first, what one needs) are answered with list_bids, search_status and "
+                        "get_bid, never a search. If he names a product that isn't saved, call propose_profile_update with "
                         "add_products instead: his Confirm saves it and starts its search. A search takes a few "
                         "minutes; the page shows the results by itself."),
     _tool("search_status", "Whether a search is running, how the last one ended, and the bids of his products "

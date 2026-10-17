@@ -20,6 +20,14 @@ primary_region = "bom"
   auto_start_machines = true
   min_machines_running = 1
 
+  # A deploy counts only once the app answers; the one open API needs no login.
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "30s"
+    method = "GET"
+    path = "/api/session"
+    timeout = "5s"
+
 # The database, kept bid PDFs and logins. Exactly one machine may use it.
 [[mounts]]
   source = "gem_data"

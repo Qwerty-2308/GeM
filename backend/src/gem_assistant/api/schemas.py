@@ -112,6 +112,7 @@ class FetchIn(BaseModel):
 
 class ChatIn(BaseModel):
     messages: list[dict] = Field(max_length=200)  # the server keeps only the recent ones anyway
+    added_bid_id: int | None = None  # a bid PDF he has just added himself: opened for the model
 
 
 class FetchOut(BaseModel):

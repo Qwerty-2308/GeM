@@ -143,10 +143,45 @@ function renderCard(card, api) {
   }
 }
 
+// The model writes Markdown now and then (tables, **bold**, # headings, - bullets) however it's
+// asked. Shown as formatting, built from text nodes like everything else: never HTML from the model.
+const TABLE_ROW = /^\s*\|.*\|\s*$/;
+const RULE_ROW = /^[\s|:-]+$/;  // |---|:---:|
+
+const inline = (text) => text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? el("strong", {}, part) : part));
+const cells = (row) => row.trim().slice(1, -1).split("|").map((cell) => inline(cell.trim()));
+
+function richText(text) {
+  const blocks = [];
+  let prose = [];
+  const endProse = () => {
+    const joined = prose.join("\n").trim();
+    if (joined) blocks.push(el("div", {}, inline(joined)));
+    prose = [];
+  };
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    if (!TABLE_ROW.test(lines[i])) {
+      prose.push(lines[i].replace(/^\s*#{1,6}\s+/, "").replace(/^(\s*)[-*]\s+/, "$1• "));
+      continue;
+    }
+    endProse();
+    const rows = [];
+    for (; i < lines.length && TABLE_ROW.test(lines[i]); i++) if (!RULE_ROW.test(lines[i])) rows.push(cells(lines[i]));
+    i--;
+    if (!rows.length) continue;
+    const [head, ...body] = rows;
+    blocks.push(el("div", { class: "table-wrap" }, el("table", {},
+      el("thead", {}, el("tr", {}, head.map((cell) => el("th", {}, cell)))),
+      el("tbody", {}, body.map((row) => el("tr", {}, row.map((cell) => el("td", {}, cell))))))));
+  }
+  endProse();
+  return blocks;
+}
+
 function bubble(item, api) {
   if (item.kind === "user") return el("div", { class: "msg user" }, item.text);
-  // Models add **bold** now and then despite being asked not to; the text is shown as plain text.
-  if (item.kind === "bot") return el("div", { class: "msg bot" }, item.text.replace(/\*\*(.+?)\*\*/g, "$1"));
+  if (item.kind === "bot") return el("div", { class: "msg bot" }, richText(item.text));
   // Cards that act (Confirm, live search) only make sense the moment they arrive.
   if (item.card.type === "profile_proposal" || item.card.type === "search") {
     return item.fresh ? renderCard(item.card, api) : null;
@@ -161,7 +196,11 @@ export async function renderChat(container, _params, api) {
     placeholder: "Ask anything: “find fire extinguisher bids”, “which bids close this week?”, “what does bid 3 need?”" });
   const send = el("button", { type: "submit" }, "Send");
   const clear = el("button", { type: "button", class: "secondary" }, "New chat");
-  const form = el("form", { class: "chat-form" }, input, el("div", { class: "row" }, send, clear));
+  // Invite-only bids open only after his own GeM login: he downloads the PDF there and adds it here.
+  // This app never logs in to GeM.
+  const file = el("input", { type: "file", id: "bid-file", accept: "application/pdf", hidden: true });
+  const attach = el("button", { type: "button", class: "secondary", onclick: () => file.click() }, "Add bid PDF");
+  const form = el("form", { class: "chat-form" }, input, el("div", { class: "row" }, send, attach, clear, file));
 
   const show = (item) => {
     const node = bubble(item, api);
@@ -182,8 +221,8 @@ export async function renderChat(container, _params, api) {
     show({ kind: "bot", text: "Namaste! Tell me what you sell, and I'll look for GeM bids and check them for you." });
   }
 
-  const ask = async () => {
-    const text = input.value.trim();
+  const ask = async (said, addedBidId = null) => {
+    const text = (said ?? input.value).trim();
     if (!text) return;
     input.value = "";
     send.disabled = true;
@@ -194,7 +233,7 @@ export async function renderChat(container, _params, api) {
     const waiting = el("div", { class: "msg bot subtle" }, "…");
     log.append(waiting);
     try {
-      const reply = await api.chat(state.messages);
+      const reply = await api.chat(state.messages, addedBidId);
       waiting.remove();
       state.messages.push(...reply.messages);
       for (const card of reply.cards) {
@@ -223,6 +262,20 @@ export async function renderChat(container, _params, api) {
   log.addEventListener("chat-note", (event) => {
     state.messages.push({ role: "assistant", content: event.detail });
     save(state);
+  });
+  file.addEventListener("change", async () => {
+    const pdf = file.files[0];
+    file.value = "";  // the same file can be chosen again
+    if (!pdf) return;
+    attach.disabled = true;
+    try {
+      const { id } = await api.importBidPdf(pdf);
+      await ask(`I've added a bid PDF myself (${pdf.name}). Check it for me.`, id);  // the server opens it
+    } catch (error) {
+      log.append(notice("bad", `That PDF couldn't be read as a GeM bid: ${error.message}`));
+    } finally {
+      attach.disabled = false;
+    }
   });
   form.addEventListener("submit", (event) => { event.preventDefault(); ask(); });
   input.addEventListener("keydown", (event) => {
