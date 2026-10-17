@@ -43,11 +43,17 @@ class GroqChatModel:
             raise ChatModelError("The chat has no Groq API key yet. On a server, set GROQ_API_KEY; on a Mac, run: "
                                 "gem-assistant set-groq-key")
         response = self._post(key, messages, tools)
-        wait = _seconds(response.headers.get("retry-after")) if response.status_code == 429 else None
-        if wait is not None and wait <= _LONGEST_WAIT_SECONDS:  # once: a model that loops can't stall here
-            self._sleep(wait)
-            response = self._post(key, messages, tools)
+        waited = 0.0
+        # Groq's retry-after is its next refill, not when this question fits, so one wait often isn't
+        # enough. The waits add up to a minute at most: a model that loops can't stall here.
+        for _ in range(4):
             wait = _seconds(response.headers.get("retry-after")) if response.status_code == 429 else None
+            if wait is None or waited + wait > _LONGEST_WAIT_SECONDS:
+                break
+            self._sleep(wait)
+            waited += wait
+            response = self._post(key, messages, tools)
+        wait = _seconds(response.headers.get("retry-after")) if response.status_code == 429 else None
         if response.status_code == 401:
             raise ChatModelError("Groq refused the API key. Set GROQ_API_KEY again (server) or run: "
                                 "gem-assistant set-groq-key (Mac)")

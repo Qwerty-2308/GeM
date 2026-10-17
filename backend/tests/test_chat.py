@@ -69,6 +69,22 @@ def test_a_minute_of_rate_limit_is_waited_out():
     assert slept == [55.0]
 
 
+def test_rate_limit_waits_add_up_to_a_minute_at_most():
+    """Groq's retry-after is the next refill, not when this question fits: one wait often isn't enough."""
+    def busy(after):
+        return httpx.Response(429, headers={"retry-after": str(after)})
+
+    ok = httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": "ok"}}]})
+    answers, slept = [busy(20), busy(20), ok], []
+    model = GroqChatModel(lambda: "k", "m", transport=httpx.MockTransport(lambda r: answers.pop(0)), sleep=slept.append)
+    assert model.complete([], []) == {"role": "assistant", "content": "ok"} and slept == [20.0, 20.0]
+
+    answers[:], slept[:] = [busy(40), busy(40), ok], []
+    with pytest.raises(ChatModelError, match="busy"):
+        model.complete([], [])
+    assert slept == [40.0]  # a second 40 s would pass the minute
+
+
 def test_a_used_up_daily_limit_says_when_to_ask_again():
     slept = []
     model = GroqChatModel(lambda: "k", "m", sleep=slept.append, transport=httpx.MockTransport(
@@ -295,6 +311,17 @@ def test_the_model_is_told_the_saved_profile_with_every_question(container):
     assert "fire extinguisher" in system and "chair" in system and "5000000" in system
 
 
+def test_the_model_is_told_which_script_his_last_message_is_in(container):
+    """After a Hinglish question the real model answered an English one in Devanagari. The script of
+    his last message is plain to see, so it is not left to the model."""
+    model = ScriptedModel(_says("ok"), _says("ok"))
+    _chat(container, model, [{"role": "user", "content": "kaunsa bid pehle band hoga?"}, _says("Bid 6."),
+                             {"role": "user", "content": "Check this bid: https://bidplus.gem.gov.in/showbidDocument/1"}])
+    assert "His last message is in Latin letters" in model.sent[0][0]["content"]
+    _chat(container, model, [{"role": "user", "content": "कौन सी बोली पहले बंद होगी?"}])
+    assert "His last message is in Devanagari" in model.sent[1][0]["content"]
+
+
 def test_a_long_conversation_is_cut_at_one_of_his_messages(container):
     history = []
     for i in range(30):
@@ -437,3 +464,16 @@ def test_tool_results_from_earlier_questions_are_left_out(container):
     _chat(container, model, history)
     sent_tool = next(m for m in model.sent[0] if m["role"] == "tool")
     assert sent_tool["tool_call_id"] == "c0" and len(sent_tool["content"]) < 200
+
+
+def test_older_answers_go_back_shortened_and_the_last_one_whole(container):
+    """Every question resends the conversation and a free key allows 8,000 tokens a minute. The page
+    keeps every answer whole; the model needs the gist of old ones and all of the one he replies to."""
+    old, last = "Old answer. " + "x" * 2000, "Last answer, point 3: EMD. " + "y" * 2000
+    history = [{"role": "user", "content": "q1"}, _says(old), {"role": "user", "content": "q2"}, _says(last),
+               {"role": "user", "content": "what about point 3?"}]
+    model = ScriptedModel(_says("ok"))
+    _chat(container, model, history)
+    answers = [m["content"] for m in model.sent[0] if m["role"] == "assistant"]
+    assert answers[0].startswith("Old answer.") and len(answers[0]) < 500
+    assert answers[1] == last
