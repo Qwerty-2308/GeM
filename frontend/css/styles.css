@@ -148,6 +148,8 @@ ul.reasons li { margin-bottom: 8px; }
 }
 .chat-form textarea { width: 100%; min-height: 48px; max-width: 1068px; margin: 0 auto 8px; display: block; }
 .chat-form .row { max-width: 1068px; margin: 0 auto; }
+.msg .table-wrap { margin: 6px 0; background: var(--surface); }
+.msg th, .msg td { padding: 6px 8px; font-size: 14px; }
 @media (max-width: 600px) { .msg { max-width: 90%; } }
 
 .login { max-width: 360px; margin: 64px auto; }

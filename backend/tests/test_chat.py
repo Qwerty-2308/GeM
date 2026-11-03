@@ -57,11 +57,39 @@ def test_a_short_busy_spell_is_waited_out_once():
     assert slept == [2.0]
 
 
-def test_a_long_busy_spell_is_not_waited_out():
+def test_a_minute_of_rate_limit_is_waited_out():
+    """A free key allows 8,000 tokens a minute, and one question can need more. The answer streams,
+    so the page keeps waiting: a slower answer beats an error."""
+    answers = [httpx.Response(429, headers={"retry-after": "55"}), httpx.Response(200, json={"choices": [{"message": {
+        "role": "assistant", "content": "ok"}}]})]
+    slept = []
+    model = GroqChatModel(lambda: "k", "m", transport=httpx.MockTransport(lambda request: answers.pop(0)),
+                          sleep=slept.append)
+    assert model.complete([], []) == {"role": "assistant", "content": "ok"}
+    assert slept == [55.0]
+
+
+def test_rate_limit_waits_add_up_to_a_minute_at_most():
+    """Groq's retry-after is the next refill, not when this question fits: one wait often isn't enough."""
+    def busy(after):
+        return httpx.Response(429, headers={"retry-after": str(after)})
+
+    ok = httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": "ok"}}]})
+    answers, slept = [busy(20), busy(20), ok], []
+    model = GroqChatModel(lambda: "k", "m", transport=httpx.MockTransport(lambda r: answers.pop(0)), sleep=slept.append)
+    assert model.complete([], []) == {"role": "assistant", "content": "ok"} and slept == [20.0, 20.0]
+
+    answers[:], slept[:] = [busy(40), busy(40), ok], []
+    with pytest.raises(ChatModelError, match="busy"):
+        model.complete([], [])
+    assert slept == [40.0]  # a second 40 s would pass the minute
+
+
+def test_a_used_up_daily_limit_says_when_to_ask_again():
     slept = []
     model = GroqChatModel(lambda: "k", "m", sleep=slept.append, transport=httpx.MockTransport(
-        lambda request: httpx.Response(429, headers={"retry-after": "120"})))
-    with pytest.raises(ChatModelError, match="busy"):
+        lambda request: httpx.Response(429, headers={"retry-after": "7300"})))
+    with pytest.raises(ChatModelError, match="Ask again in about 2 hours"):
         model.complete([], [])
     assert slept == []
 
@@ -283,6 +311,17 @@ def test_the_model_is_told_the_saved_profile_with_every_question(container):
     assert "fire extinguisher" in system and "chair" in system and "5000000" in system
 
 
+def test_the_model_is_told_which_script_his_last_message_is_in(container):
+    """After a Hinglish question the real model answered an English one in Devanagari. The script of
+    his last message is plain to see, so it is not left to the model."""
+    model = ScriptedModel(_says("ok"), _says("ok"))
+    _chat(container, model, [{"role": "user", "content": "kaunsa bid pehle band hoga?"}, _says("Bid 6."),
+                             {"role": "user", "content": "Check this bid: https://bidplus.gem.gov.in/showbidDocument/1"}])
+    assert "His last message is in Latin letters" in model.sent[0][0]["content"]
+    _chat(container, model, [{"role": "user", "content": "कौन सी बोली पहले बंद होगी?"}])
+    assert "His last message is in Devanagari" in model.sent[1][0]["content"]
+
+
 def test_a_long_conversation_is_cut_at_one_of_his_messages(container):
     history = []
     for i in range(30):
@@ -339,12 +378,60 @@ def test_chat_endpoint_answers_with_new_messages_and_cards(settings, clock, tran
     assert [c["type"] for c in body["cards"]] == ["bid_list"]
 
 
+def test_a_bid_pdf_he_added_reaches_the_model_already_opened(settings, clock, transport):
+    """Invite-only bids: he uploads the PDF himself. The model is not trusted to open it (it once
+    answered that only GeM links can be checked): the bid is opened for it before it answers."""
+    from .conftest import SAMPLE_PDF
+
+    model = ScriptedModel(_says("Checked the bid you added."))
+    client = _client(settings, clock, transport, model)
+    bid_id = client.post("/api/bids/import", files={
+        "file": ("bid.pdf", SAMPLE_PDF.read_bytes(), "application/pdf")}).json()["id"]
+    body = client.post("/api/chat", json={"messages": [{"role": "user", "content": "Check the bid PDF I added."}],
+                                          "added_bid_id": bid_id}).json()
+    assert [m["role"] for m in body["messages"]] == ["assistant", "tool", "assistant"]
+    assert body["messages"][0]["tool_calls"][0]["function"]["name"] == "get_bid"
+    assert [c["type"] for c in body["cards"]] == ["bid"]
+    opened = model.sent[0][-1]  # what the model reads before its first word
+    assert opened["role"] == "tool" and "GEM/2025/B/6819518" in opened["content"]
+
+
 def test_without_a_groq_key_the_chat_says_how_to_set_it_up(settings, clock, transport, monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     client = _client(settings, clock, transport)
     assert client.get("/api/chat").json()["ready"] is False
     response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "hi"}]})
-    assert response.status_code == 503 and "set-groq-key" in response.json()["detail"]
+    assert "set-groq-key" in response.json()["error"]
+
+
+def test_a_slow_answer_keeps_the_connection_alive(settings, clock, transport, monkeypatch):
+    """An answer can take a minute (model rounds, Groq's rate limit, a GeM download) and proxies drop
+    a connection that is silent for a while (Fly: 60 s): newlines go out while it works, then the JSON."""
+    import time
+
+    from gem_assistant.api.routes import chat as chat_route
+
+    monkeypatch.setattr(chat_route, "KEEPALIVE_SECONDS", 0.05)
+
+    class SlowModel(ScriptedModel):
+        def complete(self, messages, tools):
+            time.sleep(0.3)
+            return super().complete(messages, tools)
+
+    client = _client(settings, clock, transport, SlowModel(_says("Here you are.")))
+    response = client.post("/api/chat", json={"messages": [{"role": "user", "content": "hi"}]})
+    assert response.text.startswith("\n\n")
+    assert response.json()["messages"][-1]["content"] == "Here you are."
+
+
+def test_a_server_fault_during_an_answer_reads_as_a_plain_sentence(settings, clock, transport):
+    class BrokenModel(ScriptedModel):
+        def complete(self, messages, tools):
+            raise RuntimeError("bug")
+
+    client = _client(settings, clock, transport, BrokenModel())
+    body = client.post("/api/chat", json={"messages": [{"role": "user", "content": "hi"}]}).json()
+    assert body == {"error": "Something went wrong on the server. Ask again."}
 
 
 def test_set_groq_key_keeps_it_owner_only_and_the_page_never_sees_it(monkeypatch, tmp_path, settings, clock,
@@ -377,3 +464,16 @@ def test_tool_results_from_earlier_questions_are_left_out(container):
     _chat(container, model, history)
     sent_tool = next(m for m in model.sent[0] if m["role"] == "tool")
     assert sent_tool["tool_call_id"] == "c0" and len(sent_tool["content"]) < 200
+
+
+def test_older_answers_go_back_shortened_and_the_last_one_whole(container):
+    """Every question resends the conversation and a free key allows 8,000 tokens a minute. The page
+    keeps every answer whole; the model needs the gist of old ones and all of the one he replies to."""
+    old, last = "Old answer. " + "x" * 2000, "Last answer, point 3: EMD. " + "y" * 2000
+    history = [{"role": "user", "content": "q1"}, _says(old), {"role": "user", "content": "q2"}, _says(last),
+               {"role": "user", "content": "what about point 3?"}]
+    model = ScriptedModel(_says("ok"))
+    _chat(container, model, history)
+    answers = [m["content"] for m in model.sent[0] if m["role"] == "assistant"]
+    assert answers[0].startswith("Old answer.") and len(answers[0]) < 500
+    assert answers[1] == last

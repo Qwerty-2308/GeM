@@ -30,6 +30,20 @@ from .bid_fetch_service import BidFetchService
 # Same rule the GeM page applies to its search box.
 _INVALID_KEYWORD = re.compile(r"[~`!#$%\^*@+=\\\[\];{}|\":<>?]")
 
+# GeM's search box finds bids naming ANY of the words typed, closing soonest first, and a run reads
+# two pages. A bid counts only if an item names every word of the product (item_match), so one word
+# finds all of them, and the most telling one wastes the fewest results on other bids: page 1 for
+# "fire extinguisher" had 2 of 10 his, for "extinguisher" 9 of 10 (17 Oct 2026). The thing itself is
+# usually the last word ("office chair"); words that name no thing are passed over.
+_NOT_A_THING = frozenset({"and", "for", "with", "the", "set", "kit", "item", "items", "type", "size",
+                          "service", "services", "supply", "system", "unit", "work", "works", "parts"})
+
+
+def search_word(product: str) -> str:
+    words = [w for w in product.split() if len(w) >= 3]  # GeM's box needs 3+ characters
+    telling = [w for w in words if w.lower() not in _NOT_A_THING]
+    return (telling or words or [product])[-1]
+
 
 class DiscoveryNotAllowed(RuntimeError):
     pass
@@ -203,7 +217,10 @@ class DiscoveryService:
 
     def _execute(self, run: DiscoveryRun) -> None:
         source = self._source_factory()
-        results = source.search(run.keywords, self._settings.max_pages_per_keyword)
+        words: dict[str, str] = {}  # "office chair" and "revolving chair" both search "chair", once
+        for keyword in run.keywords:
+            words.setdefault(search_word(keyword).lower(), search_word(keyword))
+        results = source.search(list(words.values()), self._settings.max_pages_per_keyword)
         now = self._clock.now()
         for result in results:
             run.found += len(result.bids)

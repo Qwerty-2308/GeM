@@ -114,6 +114,17 @@ def test_a_failed_corrigendum_check_is_not_counted_as_checked(app, transport, so
     assert any("did not complete" in r.reason for r in assessed.assessment.results)
 
 
+def test_gem_is_asked_for_the_telling_word_of_each_product(app, source):
+    """GeM's box finds bids naming ANY word typed, closing soonest first, and a search reads two
+    pages: "fire extinguisher" filled page 1 with fire alarms and cabinets (2 of 10 his), while
+    "extinguisher" gave 9 of 10 (17 Oct 2026). A bid counts only if an item names every word of
+    the product, so searching one of them misses none of his bids."""
+    app.profiles.save(SellerProfile(categories=["fire extinguisher", "office chair", "revolving chair",
+                                                "first aid kit", "Pump"]))
+    app.discovery.run()
+    assert source.calls == [(["extinguisher", "chair", "aid", "Pump"], 2)]
+
+
 def test_run_finds_stores_and_analyses_new_bids(app, transport, source):
     _queue_pdf(transport)
     run = app.discovery.run()
