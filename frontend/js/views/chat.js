@@ -161,7 +161,11 @@ export async function renderChat(container, _params, api) {
     placeholder: "Ask anything: “find fire extinguisher bids”, “which bids close this week?”, “what does bid 3 need?”" });
   const send = el("button", { type: "submit" }, "Send");
   const clear = el("button", { type: "button", class: "secondary" }, "New chat");
-  const form = el("form", { class: "chat-form" }, input, el("div", { class: "row" }, send, clear));
+  // Invite-only bids open only after his own GeM login: he downloads the PDF there and adds it here.
+  // This app never logs in to GeM.
+  const file = el("input", { type: "file", id: "bid-file", accept: "application/pdf", hidden: true });
+  const attach = el("button", { type: "button", class: "secondary", onclick: () => file.click() }, "Add bid PDF");
+  const form = el("form", { class: "chat-form" }, input, el("div", { class: "row" }, send, attach, clear, file));
 
   const show = (item) => {
     const node = bubble(item, api);
@@ -182,8 +186,8 @@ export async function renderChat(container, _params, api) {
     show({ kind: "bot", text: "Namaste! Tell me what you sell, and I'll look for GeM bids and check them for you." });
   }
 
-  const ask = async () => {
-    const text = input.value.trim();
+  const ask = async (said) => {
+    const text = (said ?? input.value).trim();
     if (!text) return;
     input.value = "";
     send.disabled = true;
@@ -223,6 +227,20 @@ export async function renderChat(container, _params, api) {
   log.addEventListener("chat-note", (event) => {
     state.messages.push({ role: "assistant", content: event.detail });
     save(state);
+  });
+  file.addEventListener("change", async () => {
+    const pdf = file.files[0];
+    file.value = "";  // the same file can be chosen again
+    if (!pdf) return;
+    attach.disabled = true;
+    try {
+      const { id } = await api.importBidPdf(pdf);
+      await ask(`I've added a bid document myself (${pdf.name}): bid ${id}. Check it for me.`);
+    } catch (error) {
+      log.append(notice("bad", `That PDF couldn't be read as a GeM bid: ${error.message}`));
+    } finally {
+      attach.disabled = false;
+    }
   });
   form.addEventListener("submit", (event) => { event.preventDefault(); ask(); });
   input.addEventListener("keydown", (event) => {
